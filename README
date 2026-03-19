@@ -79,6 +79,11 @@ The "-mouseonly" option works on both X11 and Wayland (via XWayland) and
 requires libinput and libudev. It directly owns the CLIPBOARD selection instead
 of using the cutbuffer as intermediary.
 
+The "-mouseonly" option requires read access to input devices (/dev/input/*).
+The user running autocutsel must be a member of the "input" group:
+ sudo usermod -aG input $USER
+A re-login is required for the group change to take effect.
+
 This is a fork of autocutsel by Michael Witrant. Thanks to him for creating
 the original project.
 Original repository: https://github.com/sigmike/autocutsel

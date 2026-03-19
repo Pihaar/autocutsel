@@ -65,6 +65,21 @@ autocutsel \-selection PRIMARY \-mouseonly
 .PP
 This option uses libinput to detect mouse button releases and works on both
 X11 and Wayland (via XWayland). It requires libinput and libudev.
+.PP
+.B Note:
+The
+.B \-mouseonly
+option requires read access to input devices
+.RI ( /dev/input/* ).
+The user running autocutsel must be a member of the
+.B input
+group:
+.PP
+.RS
+sudo usermod \-aG input $USER
+.RE
+.PP
+A re-login is required for the group change to take effect.
 .SH EXAMPLES
 Synchronize the CLIPBOARD selection with the cutbuffer (default):
 .PP

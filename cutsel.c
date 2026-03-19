@@ -86,8 +86,11 @@ static void PrintSelection(Widget w, XtPointer client_data, Atom *selection,
     printf("Nobody owns the selection\n");
   else if (*type == XA_STRING)
       printf("%s\n", (char*)value);
-  else
-    printf("Invalid type received: %s\n", XGetAtomName(d, *type));
+  else {
+    char *name = XGetAtomName(d, *type);
+    printf("Invalid type received: %s\n", name);
+    XFree(name);
+  }
 
   XtFree(value);
   exit(0);
@@ -106,10 +109,16 @@ static void TargetsReceived(Widget w, XtPointer client_data, Atom *selection,
   else if (*type == XA_ATOM) {
     atoms = (Atom*)value;
     printf("%lu targets (%i bits each):\n", *length, *format);
-    for (i=0; i<*length; i++)
-      printf("%s\n", XGetAtomName(d, atoms[i]));
-  } else
-    printf("Invalid type received: %s\n", XGetAtomName(d, *type));
+    for (i=0; i<*length; i++) {
+      char *name = XGetAtomName(d, atoms[i]);
+      printf("%s\n", name);
+      XFree(name);
+    }
+  } else {
+    char *name = XGetAtomName(d, *type);
+    printf("Invalid type received: %s\n", name);
+    XFree(name);
+  }
 
   XtFree(value);
   exit(0);
@@ -125,8 +134,11 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
     printf("No length received\n");
   else if (*type == XA_INTEGER) {
       printf("Length is %" PRIx32 "\n", *(CARD32*)value);
-  } else
-      printf("Invalid type received: %s\n", XGetAtomName(d, *type));
+  } else {
+      char *name = XGetAtomName(d, *type);
+      printf("Invalid type received: %s\n", name);
+      XFree(name);
+  }
 
   XtFree(value);
   exit(0);
@@ -219,8 +231,10 @@ int main(int argc, char* argv[])
       XtAppAddTimeOut(context, 10, Exit, 0);
     } else {
       options.value = XFetchBuffer(dpy, &options.length, buffer);
-      if (options.length)
-        printf("%s\n", options.value);
+      if (options.length) {
+        fwrite(options.value, 1, options.length, stdout);
+        putchar('\n');
+      }
       exit(0);
     }
   } else if (strcmp(argv[1], "sel") == 0) {

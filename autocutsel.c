@@ -64,8 +64,8 @@ static void *libinput_thread(void *arg)
         struct libinput_event_pointer *pev = libinput_event_get_pointer_event(ev);
         if (libinput_event_pointer_get_button(pev) == BTN_LEFT &&
             libinput_event_pointer_get_button_state(pev) == LIBINPUT_BUTTON_STATE_RELEASED) {
-          // Atomic write - safe without mutex for a simple int flag
-          options.mouse_grace_ticks = 5;
+          // Atomic store - safe cross-thread communication
+          atomic_store(&options.mouse_grace_ticks, 5);
         }
       }
       libinput_event_destroy(ev);
@@ -131,10 +131,22 @@ static XtResource resources[] = {
 
 static void CloseStdFds()
 {
-  int fd;
+  int fd = open("/dev/null", O_RDWR);
+  if (fd >= 0) {
+    dup2(fd, 0);
+    dup2(fd, 1);
+    dup2(fd, 2);
+    if (fd > 2)
+      close(fd);
+  }
+}
 
-  for (fd = 0; fd < 3; fd++)
-    close (fd);
+static void CleanupLibinput(void)
+{
+  if (options.li) {
+    libinput_unref(options.li);
+    options.li = NULL;
+  }
 }
 
 static void Terminate(int caught)
@@ -150,7 +162,7 @@ static void TrapSignals()
   sigemptyset (&action.sa_mask);
   action.sa_flags = 0;
   for (catch = 1; catch < NSIG; catch++) {
-    if (catch != SIGKILL) {
+    if (catch != SIGKILL && catch != SIGSTOP) {
       action.sa_handler = Terminate;
       sigaction (catch, &action, (struct sigaction *) 0);
     }
@@ -209,7 +221,7 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
                                   Atom *selection, Atom *type, XtPointer value,
                                   unsigned long *received_length, int *format)
 {
-  int length = *received_length;
+  int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
 
   if (*type == 0 ||
       *type == XT_CONVERT_FAIL ||
@@ -267,7 +279,7 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
                               Atom *type, XtPointer value,
                               unsigned long *received_length, int *format)
 {
-  int length = *received_length;
+  int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
 
   if (options.debug) {
     printf("SelectionReceived: type=%lu length=%d format=%d\n",
@@ -344,11 +356,11 @@ void timeout(XtPointer p, XtIntervalId* i)
     CheckBuffer();
   else if (options.mouseonly) {
     // mouseonly: only read selection on mouse release, never CheckBuffer
-    if (options.mouse_grace_ticks > 0) {
-      options.mouse_grace_ticks--;
+    if (atomic_load(&options.mouse_grace_ticks) > 0) {
+      atomic_fetch_sub(&options.mouse_grace_ticks, 1);
       if (options.debug)
         printf("mouseonly: grace tick, reading selection (%d remaining)\n",
-               options.mouse_grace_ticks);
+               atomic_load(&options.mouse_grace_ticks));
       XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
         SelectionReceived, NULL,
         CurrentTime);
@@ -415,7 +427,7 @@ int main(int argc, char* argv[])
   else
     options.mouseonly = 0;
 
-  options.mouse_grace_ticks = 0;
+  atomic_init(&options.mouse_grace_ticks, 0);
 
   if (strcmp(options.fork_option, "on") == 0) {
     options.fork = 1;
@@ -504,6 +516,8 @@ int main(int argc, char* argv[])
       options.mouseonly = 0;
     }
   }
+
+  atexit(CleanupLibinput);
 
   /* Set up window properties so that the PID of the relevant autocutsel
    * process is known and autocutsel windows can be identified as such when

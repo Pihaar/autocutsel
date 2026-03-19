@@ -77,10 +77,12 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
   Atom utf8_string = XInternAtom(d, "UTF8_STRING", False);
 
   if (options.debug) {
+    char *target_name = XGetAtomName(d, *target);
+    char *sel_name = XGetAtomName(d, *selection);
     printf("Window 0x%lx requested %s of selection %s.\n",
-      req->requestor,
-      XGetAtomName(d, *target),
-      XGetAtomName(d, *selection));
+      req->requestor, target_name, sel_name);
+    XFree(target_name);
+    XFree(sel_name);
   }
 
   if (*target == XA_TARGETS(d)) {
@@ -107,8 +109,11 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
 
     if (options.debug) {
       printf("Targets are: ");
-      for (i=0; i<*length; i++)
-        printf("%s ", XGetAtomName(d, atoms[i]));
+      for (i=0; i<*length; i++) {
+        char *name = XGetAtomName(d, atoms[i]);
+        printf("%s ", name);
+        XFree(name);
+      }
       printf("\n");
     }
 
@@ -123,7 +128,9 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *format = 8;
 
     if (options.debug) {
-      printf("Returning %s ", XGetAtomName(d, *target));
+      char *name = XGetAtomName(d, *target);
+      printf("Returning %s ", name);
+      XFree(name);
       PrintValue((char*)*value, *length);
       printf("\n");
     }
