@@ -1,0 +1,116 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-fedora:
+    name: Build (Fedora)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc make autoconf automake libtool \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel systemd-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+  build-opensuse:
+    name: Build (openSUSE)
+    runs-on: ubuntu-latest
+    container: opensuse/tumbleweed:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          zypper --non-interactive install \
+            gcc make autoconf automake libtool \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel libudev-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+  build-rpm-fedora:
+    name: RPM (Fedora)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    needs: build-fedora
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc make autoconf automake libtool rpm-build \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel systemd-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Create source tarball
+        run: |
+          mkdir -p ~/rpmbuild/SOURCES
+          tar czf ~/rpmbuild/SOURCES/autocutsel-0.10.1.tar.gz \
+            --transform 's,^,autocutsel-0.10.1/,' \
+            --exclude=.git *
+
+      - name: Build RPM
+        run: rpmbuild -ba autocutsel.spec
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-fedora
+          path: ~/rpmbuild/RPMS/**/*.rpm
+
+  build-rpm-opensuse:
+    name: RPM (openSUSE)
+    runs-on: ubuntu-latest
+    container: opensuse/tumbleweed:latest
+    needs: build-opensuse
+    steps:
+      - name: Install dependencies
+        run: |
+          zypper --non-interactive install \
+            gcc make autoconf automake libtool rpm-build \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel libudev-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Create source tarball
+        run: |
+          mkdir -p ~/rpmbuild/SOURCES
+          tar czf ~/rpmbuild/SOURCES/autocutsel-0.10.1.tar.gz \
+            --transform 's,^,autocutsel-0.10.1/,' \
+            --exclude=.git *
+
+      - name: Build RPM
+        run: rpmbuild -ba autocutsel.spec
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-opensuse
+          path: ~/rpmbuild/RPMS/**/*.rpm
