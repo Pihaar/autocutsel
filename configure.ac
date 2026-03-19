@@ -34,6 +34,18 @@ AC_CHECK_LIB(Xmu, XmuGetHostname,
   AC_MSG_ERROR(Unable to find Xmu library),
   $LIBS)
 
+AC_CHECK_LIB(input, libinput_udev_create_context,
+  LIBS="$LIBS -linput",
+  AC_MSG_WARN(Unable to find libinput - mouseonly mode disabled),
+  $LIBS)
+
+AC_CHECK_LIB(udev, udev_new,
+  LIBS="$LIBS -ludev",
+  AC_MSG_WARN(Unable to find libudev - mouseonly mode disabled),
+  $LIBS)
+
+LIBS="$LIBS -lpthread"
+
 dnl Checks for library functions.
 AC_FUNC_SETPGRP
 

@@ -61,6 +61,20 @@ is requested before the mouse button is released. As a workaround, you can run
 autocutsel with the "-buttonup" option and it will only get the selection when
 the first mouse button is not pressed.
 
+If you want to synchronize PRIMARY to CLIPBOARD only when text is selected with
+the mouse (not with keyboard shortcuts like Shift+Arrow), use the "-mouseonly"
+option:
+ autocutsel -selection PRIMARY -mouseonly
+
+This uses libinput to detect mouse button releases and only syncs the PRIMARY
+selection to CLIPBOARD after a mouse click. Keyboard-based selections (e.g.
+Shift+Arrow in text editors) are ignored. This is useful when working in editors
+like VSCode where keyboard selection would otherwise overwrite your clipboard.
+
+The "-mouseonly" option works on both X11 and Wayland (via XWayland) and
+requires libinput and libudev. It directly owns the CLIPBOARD selection instead
+of using the cutbuffer as intermediary.
+
 Any feedback is welcome.
 
 Michael Witrant <mike at lepton.fr>

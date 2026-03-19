@@ -43,6 +43,12 @@
 #include <signal.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <pthread.h>
+#include <libinput.h>
+#include <libudev.h>
+#include <linux/input-event-codes.h>
 
 
 typedef struct {
@@ -62,6 +68,12 @@ typedef struct {
   int     length;
   int     own_selection;
   int     buttonup;
+  String  mouseonly_option;
+  int     mouseonly;
+  int     mouse_grace_ticks;
+  struct libinput *li;
+  Atom    clipboard;
+  int     own_clipboard;
 } OptionsRec;
 
 extern Widget box;

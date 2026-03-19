@@ -32,6 +32,48 @@
 
 #include "common.h"
 
+// libinput callbacks for opening/closing device files
+static int open_restricted(const char *path, int flags, void *user_data)
+{
+  int fd = open(path, flags);
+  return fd < 0 ? -errno : fd;
+}
+
+static void close_restricted(int fd, void *user_data)
+{
+  close(fd);
+}
+
+static const struct libinput_interface li_interface = {
+  .open_restricted = open_restricted,
+  .close_restricted = close_restricted,
+};
+
+// Dedicated thread for libinput event processing
+static void *libinput_thread(void *arg)
+{
+  struct libinput *li = (struct libinput *)arg;
+  struct pollfd pfd = { .fd = libinput_get_fd(li), .events = POLLIN };
+
+  while (1) {
+    poll(&pfd, 1, -1);
+    libinput_dispatch(li);
+    struct libinput_event *ev;
+    while ((ev = libinput_get_event(li)) != NULL) {
+      if (libinput_event_get_type(ev) == LIBINPUT_EVENT_POINTER_BUTTON) {
+        struct libinput_event_pointer *pev = libinput_event_get_pointer_event(ev);
+        if (libinput_event_pointer_get_button(pev) == BTN_LEFT &&
+            libinput_event_pointer_get_button_state(pev) == LIBINPUT_BUTTON_STATE_RELEASED) {
+          // Atomic write - safe without mutex for a simple int flag
+          options.mouse_grace_ticks = 5;
+        }
+      }
+      libinput_event_destroy(ev);
+    }
+  }
+  return NULL;
+}
+
 static XrmOptionDescRec optionDesc[] = {
   {"-selection", "selection", XrmoptionSepArg, NULL},
   {"-select",    "selection", XrmoptionSepArg, NULL},
@@ -49,13 +91,15 @@ static XrmOptionDescRec optionDesc[] = {
   {"-pause",     "pause",     XrmoptionSepArg, NULL},
   {"-p",         "pause",     XrmoptionSepArg, NULL},
   {"-buttonup",  "buttonup",  XrmoptionNoArg,  "on"},
+  {"-mouseonly", "mouseonly", XrmoptionNoArg,  "on"},
 };
 
 int Syntax(char *call)
 {
   fprintf (stderr,
     "usage:  %s [-selection <name>] [-cutbuffer <number>]"
-    " [-pause <milliseconds>] [-debug] [-verbose] [-fork] [-buttonup]\n",
+    " [-pause <milliseconds>] [-debug] [-verbose] [-fork] [-buttonup]"
+    " [-mouseonly]\n",
     call);
   exit (1);
 }
@@ -79,6 +123,8 @@ static XtResource resources[] = {
     Offset(pause), XtRImmediate, (XtPointer)500},
   {"buttonup", "ButtonUp", XtRString, sizeof(String),
     Offset(buttonup_option), XtRString, "off"},
+  {"mouseonly", "MouseOnly", XtRString, sizeof(String),
+    Offset(mouseonly_option), XtRString, "off"},
 };
 
 #undef Offset
@@ -117,6 +163,14 @@ static void LoseSelection(Widget w, Atom *selection)
   if (options.debug)
     printf("Selection lost\n");
   options.own_selection = 0;
+}
+
+// Called when we lose CLIPBOARD ownership (mouseonly mode)
+static void LoseClipboard(Widget w, Atom *selection)
+{
+  if (options.debug)
+    printf("Clipboard ownership lost\n");
+  options.own_clipboard = 0;
 }
 
 // Returns true if value (or length) is different
@@ -215,6 +269,22 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
 {
   int length = *received_length;
 
+  if (options.debug) {
+    printf("SelectionReceived: type=%lu length=%d format=%d\n",
+           (unsigned long)*type, length, *format);
+    if (length > 0 && value)  {
+      printf("  value: ");
+      PrintValue((char*)value, length > 80 ? 80 : length);
+      printf("\n");
+    }
+    if (options.value) {
+      printf("  cached: ");
+      PrintValue(options.value, options.length > 80 ? 80 : options.length);
+      printf("\n");
+    }
+    printf("  differs: %d\n", (length > 0 && value) ? ValueDiffers(value, length) : -1);
+  }
+
   if (*type != 0 && *type != XT_CONVERT_FAIL) {
     if (length > 0 && ValueDiffers(value, length)) {
       if (options.debug) {
@@ -229,13 +299,31 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
         PrintValue(options.value, options.length);
         printf("\n");
       }
-      if (options.debug)
-        printf("Updating buffer\n");
 
-      XStoreBuffer(XtDisplay(w),
-             (char*)options.value,
-             (int)(options.length),
-             buffer );
+      if (options.mouseonly) {
+        // Directly own CLIPBOARD - force XWayland to notice the change
+        // by disowning first, then re-claiming ownership
+        if (options.debug)
+          printf("Owning CLIPBOARD directly\n");
+        if (options.own_clipboard) {
+          // Disown first to force a new SelectionNotify to XWayland
+          XtDisownSelection(box, options.clipboard, CurrentTime);
+          options.own_clipboard = 0;
+        }
+        if (XtOwnSelection(box, options.clipboard, CurrentTime,
+            ConvertSelection, LoseClipboard, NULL) == True) {
+          options.own_clipboard = 1;
+        } else {
+          printf("WARNING: Unable to own CLIPBOARD!\n");
+        }
+      } else {
+        if (options.debug)
+          printf("Updating buffer\n");
+        XStoreBuffer(XtDisplay(w),
+               (char*)options.value,
+               (int)(options.length),
+               buffer );
+      }
 
       XtFree(value);
       return;
@@ -244,7 +332,9 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
   XtFree(value);
 
   // Unless a new selection value is found, check the buffer value
-  CheckBuffer();
+  // (skip in mouseonly mode - we never want to own the selection)
+  if (!options.mouseonly)
+    CheckBuffer();
 }
 
 // Called each <pause arg=500> milliseconds
@@ -252,8 +342,20 @@ void timeout(XtPointer p, XtIntervalId* i)
 {
   if (options.own_selection)
     CheckBuffer();
-  else {
+  else if (options.mouseonly) {
+    // mouseonly: only read selection on mouse release, never CheckBuffer
+    if (options.mouse_grace_ticks > 0) {
+      options.mouse_grace_ticks--;
+      if (options.debug)
+        printf("mouseonly: grace tick, reading selection (%d remaining)\n",
+               options.mouse_grace_ticks);
+      XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
+        SelectionReceived, NULL,
+        CurrentTime);
+    }
+  } else {
     int get_value = 1;
+
     if (options.buttonup) {
       int screen_num = DefaultScreen(dpy);
       int root_x, root_y, win_x, win_y;
@@ -264,6 +366,7 @@ void timeout(XtPointer p, XtIntervalId* i)
       if (mask & (ShiftMask | Button1Mask))
         get_value = 0;
     }
+
     if (get_value)
       XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
         SelectionReceived, NULL,
@@ -307,6 +410,13 @@ int main(int argc, char* argv[])
   else
     options.buttonup = 0;
 
+  if (strcmp(options.mouseonly_option, "on") == 0)
+    options.mouseonly = 1;
+  else
+    options.mouseonly = 0;
+
+  options.mouse_grace_ticks = 0;
+
   if (strcmp(options.fork_option, "on") == 0) {
     options.fork = 1;
     options.verbose = 0;
@@ -342,12 +452,14 @@ int main(int argc, char* argv[])
   options.length = 0;
 
   options.own_selection = 0;
+  options.own_clipboard = 0;
 
   box = XtCreateManagedWidget("box", boxWidgetClass, top, NULL, 0);
   dpy = XtDisplay(top);
 
   selection = XInternAtom(dpy, options.selection_name, 0);
   options.selection = selection;
+  options.clipboard = XInternAtom(dpy, "CLIPBOARD", 0);
   buffer = 0;
 
   options.value = XFetchBuffer(dpy, &options.length, buffer);
@@ -355,6 +467,43 @@ int main(int argc, char* argv[])
   XtAppAddTimeOut(context, options.pause, timeout, 0);
   XtRealizeWidget(top);
   XUnmapWindow(XtDisplay(top), XtWindow(top));
+
+  // Set up libinput for mouseonly mode: listen for pointer button events
+  options.li = NULL;
+  if (options.mouseonly) {
+    struct udev *udev = udev_new();
+    if (udev) {
+      options.li = libinput_udev_create_context(&li_interface, NULL, udev);
+      if (options.li) {
+        if (libinput_udev_assign_seat(options.li, "seat0") == 0) {
+          // Start dedicated thread for libinput event processing
+          pthread_t li_thread;
+          if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {
+            pthread_detach(li_thread);
+            if (options.debug)
+              printf("libinput mouseonly mode enabled (threaded)\n");
+          } else {
+            fprintf(stderr, "WARNING: could not create libinput thread\n");
+            libinput_unref(options.li);
+            options.li = NULL;
+            options.mouseonly = 0;
+          }
+        } else {
+          fprintf(stderr, "WARNING: libinput could not assign seat, -mouseonly will not work\n");
+          libinput_unref(options.li);
+          options.li = NULL;
+          options.mouseonly = 0;
+        }
+      } else {
+        fprintf(stderr, "WARNING: could not create libinput context, -mouseonly will not work\n");
+        options.mouseonly = 0;
+      }
+      udev_unref(udev);
+    } else {
+      fprintf(stderr, "WARNING: could not create udev context, -mouseonly will not work\n");
+      options.mouseonly = 0;
+    }
+  }
 
   /* Set up window properties so that the PID of the relevant autocutsel
    * process is known and autocutsel windows can be identified as such when
