@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           zypper --non-interactive install \
-            gcc make autoconf automake libtool \
+            gcc make gawk autoconf automake libtool \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel
 
@@ -93,7 +93,7 @@ jobs:
       - name: Install dependencies
         run: |
           zypper --non-interactive install \
-            gcc make autoconf automake libtool rpm-build \
+            gcc make gawk autoconf automake libtool rpm-build \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel
 
