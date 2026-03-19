@@ -17,14 +17,8 @@ BuildRequires:  pkgconfig(xt)
 BuildRequires:  pkgconfig(xmu)
 BuildRequires:  pkgconfig(xext)
 BuildRequires:  pkgconfig(libinput)
-
-%if 0%{?suse_version}
+BuildRequires:  pkgconfig(libudev)
 BuildRequires:  libXaw-devel
-BuildRequires:  libudev-devel
-%else
-BuildRequires:  libXaw-devel
-BuildRequires:  systemd-devel
-%endif
 
 %description
 autocutsel tracks changes in the server's cutbuffer and clipboard selection,

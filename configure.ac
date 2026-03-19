@@ -34,15 +34,15 @@ AC_CHECK_LIB(Xmu, XmuGetHostname,
   AC_MSG_ERROR(Unable to find Xmu library),
   $LIBS)
 
-AC_CHECK_LIB(input, libinput_udev_create_context,
-  LIBS="$LIBS -linput",
-  AC_MSG_WARN(Unable to find libinput - mouseonly mode disabled),
-  $LIBS)
+PKG_CHECK_MODULES([LIBINPUT], [libinput],
+  [CFLAGS="$CFLAGS $LIBINPUT_CFLAGS"
+   LIBS="$LIBS $LIBINPUT_LIBS"],
+  AC_MSG_WARN(Unable to find libinput - mouseonly mode disabled))
 
-AC_CHECK_LIB(udev, udev_new,
-  LIBS="$LIBS -ludev",
-  AC_MSG_WARN(Unable to find libudev - mouseonly mode disabled),
-  $LIBS)
+PKG_CHECK_MODULES([LIBUDEV], [libudev],
+  [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"
+   LIBS="$LIBS $LIBUDEV_LIBS"],
+  AC_MSG_WARN(Unable to find libudev - mouseonly mode disabled))
 
 LIBS="$LIBS -lpthread"
 
