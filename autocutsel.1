@@ -1,0 +1,97 @@
+.TH AUTOCUTSEL 1 "March 2026" "autocutsel 0.10.1" "General Commands Manual"
+.SH NAME
+autocutsel \- keep the X clipboard and the cutbuffer in sync
+.SH SYNOPSIS
+.B autocutsel
+.RB [ \-selection
+.IR selection_name ]
+.RB [ \-cutbuffer
+.IR number ]
+.RB [ \-debug ]
+.RB [ \-verbose ]
+.RB [ \-fork ]
+.RB [ \-pause
+.IR milliseconds ]
+.RB [ \-buttonup ]
+.RB [ \-mouseonly ]
+.SH DESCRIPTION
+.B autocutsel
+tracks changes in the server's cutbuffer and clipboard selection. When the
+clipboard is changed, it updates the cutbuffer. When the cutbuffer is changed,
+it owns the clipboard selection. The cutbuffer and clipboard selection are
+always synchronized.
+.PP
+This is useful for VNC sessions where Windows VNC clients synchronize the
+Windows clipboard with the cutbuffer but not with the selections.
+.SH OPTIONS
+.TP
+.BR \-selection ", " \-select ", " \-sel ", " \-s " " \fIname\fR
+Specify which selection to use. Default is CLIPBOARD.
+.TP
+.BR \-cutbuffer ", " \-cut ", " \-c " " \fInumber\fR
+Specify which cutbuffer to use. Default is 0.
+.TP
+.BR \-debug ", " \-d
+Print debugging information.
+.TP
+.BR \-verbose ", " \-v
+Be more verbose. Reports the version and announces synchronizations.
+.TP
+.BR \-fork ", " \-f
+Run as a daemon in the background.
+.TP
+.BR \-pause ", " \-p " " \fImilliseconds\fR
+Set the polling interval in milliseconds. Default is 500.
+.TP
+.B \-buttonup
+Only read the selection when mouse button 1 is not pressed. This may help
+with applications like OpenOffice Writer that have trouble when the selection
+is requested before the mouse button is released.
+.TP
+.B \-mouseonly
+Synchronize PRIMARY to CLIPBOARD only when text is selected with the mouse.
+Keyboard-based selections (e.g. Shift+Arrow) are ignored. This prevents
+accidental clipboard overwrites in editors like VSCode where keyboard
+selection would otherwise replace the clipboard content.
+.PP
+Only a single instance is needed \(em unlike the traditional setup which
+requires two instances (one for CLIPBOARD, one for PRIMARY), the
+.B \-mouseonly
+option handles both selections in a single process. Typical usage:
+.PP
+.RS
+autocutsel \-selection PRIMARY \-mouseonly
+.RE
+.PP
+This option uses libinput to detect mouse button releases and works on both
+X11 and Wayland (via XWayland). It requires libinput and libudev.
+.SH EXAMPLES
+Synchronize the CLIPBOARD selection with the cutbuffer (default):
+.PP
+.RS
+autocutsel
+.RE
+.PP
+Synchronize the PRIMARY selection with the cutbuffer:
+.PP
+.RS
+autocutsel \-selection PRIMARY
+.RE
+.PP
+Sync PRIMARY to CLIPBOARD on mouse selection only (single instance):
+.PP
+.RS
+autocutsel \-selection PRIMARY \-mouseonly
+.RE
+.SH AUTHORS
+Originally written by Michael Witrant <mike@lepton.fr>.
+.br
+Original repository: https://github.com/sigmike/autocutsel
+.PP
+The \-mouseonly option was added in this fork:
+https://github.com/Pihaar/autocutsel
+.SH LICENSE
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
