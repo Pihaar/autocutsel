@@ -70,8 +70,9 @@ jobs:
 
       - name: Create source tarball
         run: |
-          mkdir -p ~/rpmbuild/SOURCES
-          tar czf ~/rpmbuild/SOURCES/autocutsel-0.10.1.tar.gz \
+          topdir=$(rpm --eval '%{_topdir}')
+          mkdir -p "$topdir/SOURCES"
+          tar czf "$topdir/SOURCES/autocutsel-0.10.1.tar.gz" \
             --transform 's,^,autocutsel-0.10.1/,' \
             --exclude=.git *
 
@@ -101,8 +102,9 @@ jobs:
 
       - name: Create source tarball
         run: |
-          mkdir -p ~/rpmbuild/SOURCES
-          tar czf ~/rpmbuild/SOURCES/autocutsel-0.10.1.tar.gz \
+          topdir=$(rpm --eval '%{_topdir}')
+          mkdir -p "$topdir/SOURCES"
+          tar czf "$topdir/SOURCES/autocutsel-0.10.1.tar.gz" \
             --transform 's,^,autocutsel-0.10.1/,' \
             --exclude=.git *
 
@@ -113,4 +115,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rpm-opensuse
-          path: ~/rpmbuild/RPMS/**/*.rpm
+          path: /usr/src/packages/RPMS/**/*.rpm
