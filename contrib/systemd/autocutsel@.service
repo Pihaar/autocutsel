@@ -1,0 +1,46 @@
+[Unit]
+Description=autocutsel - clipboard synchronization (%i)
+Documentation=man:autocutsel(1)
+After=graphical-session.target
+PartOf=graphical-session.target
+# Only start when an X11 display is available (autocutsel is an X11 client).
+# On Wayland this is set when XWayland is available.
+ConditionEnvironment=DISPLAY
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/autocutsel/%i.args
+# Variable must be expanded by a shell for correct word splitting.
+ExecStart=/bin/sh -c 'exec /usr/bin/autocutsel ${AUTOCUTSEL_OPTS}'
+Restart=on-failure
+RestartSec=3
+
+# Sandboxing - requires PrivateUsers for mount-namespace-based options.
+# These options work on RHEL 9 / Fedora / openSUSE with unprivileged user
+# namespaces enabled (default on most modern distributions).
+PrivateUsers=true
+ProtectHome=read-only
+ProtectSystem=strict
+PrivateDevices=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+NoNewPrivileges=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+SystemCallFilter=@system-service
+
+# X11 display socket must remain accessible
+BindReadOnlyPaths=/tmp/.X11-unix/
+# Input devices for -mouseonly mode (libinput)
+BindPaths=/dev/input
+
+[Install]
+WantedBy=graphical-session.target

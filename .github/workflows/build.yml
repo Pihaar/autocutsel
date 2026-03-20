@@ -53,7 +53,78 @@ jobs:
       - name: Build
         run: make
 
-  build-rpm-fedora:
+  build-ubuntu:
+    name: Build (Ubuntu)
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            gcc make autoconf automake libtool pkg-config \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libinput-dev libudev-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+  build-debian:
+    name: Build (Debian)
+    runs-on: ubuntu-latest
+    container: debian:stable
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            gcc make autoconf automake libtool pkg-config \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libinput-dev libudev-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+  build-archlinux:
+    name: Build (Arch Linux)
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            autoconf automake libtool pkg-config \
+            libx11 libxt libxmu libxaw libxext \
+            libinput systemd
+
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+  rpm-fedora:
     name: RPM (Fedora)
     runs-on: ubuntu-latest
     container: fedora:latest
@@ -72,8 +143,8 @@ jobs:
         run: |
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
-          tar czf "$topdir/SOURCES/autocutsel-0.10.1.tar.gz" \
-            --transform 's,^,autocutsel-0.10.1/,' \
+          tar czf "$topdir/SOURCES/autocutsel-0.11.0.tar.gz" \
+            --transform 's,^,autocutsel-0.11.0/,' \
             --exclude=.git *
 
       - name: Build RPM
@@ -85,7 +156,7 @@ jobs:
           name: rpm-fedora
           path: ~/rpmbuild/RPMS/**/*.rpm
 
-  build-rpm-opensuse:
+  rpm-opensuse:
     name: RPM (openSUSE)
     runs-on: ubuntu-latest
     container: opensuse/tumbleweed:latest
@@ -104,8 +175,8 @@ jobs:
         run: |
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
-          tar czf "$topdir/SOURCES/autocutsel-0.10.1.tar.gz" \
-            --transform 's,^,autocutsel-0.10.1/,' \
+          tar czf "$topdir/SOURCES/autocutsel-0.11.0.tar.gz" \
+            --transform 's,^,autocutsel-0.11.0/,' \
             --exclude=.git *
 
       - name: Build RPM
@@ -116,3 +187,86 @@ jobs:
         with:
           name: rpm-opensuse
           path: /usr/src/packages/RPMS/**/*.rpm
+
+  deb-ubuntu:
+    name: DEB (Ubuntu)
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
+    needs: build-ubuntu
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            gcc make autoconf automake libtool pkg-config \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libinput-dev libudev-dev \
+            debhelper fakeroot dpkg-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Build DEB
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-ubuntu
+          path: ../*.deb
+
+  deb-debian:
+    name: DEB (Debian)
+    runs-on: ubuntu-latest
+    container: debian:stable
+    needs: build-debian
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            gcc make autoconf automake libtool pkg-config \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libinput-dev libudev-dev \
+            debhelper fakeroot dpkg-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Build DEB
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-debian
+          path: ../*.deb
+
+  pkg-archlinux:
+    name: PKG (Arch Linux)
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    needs: build-archlinux
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            autoconf automake libtool pkg-config \
+            libx11 libxt libxmu libxaw libxext \
+            libinput systemd git
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+      - uses: actions/checkout@v4
+
+      - name: Build package
+        run: |
+          chown -R builder:builder .
+          su builder -c 'makepkg -sf --noconfirm'
+
+      - name: Upload PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-archlinux
+          path: '*.pkg.tar.zst'

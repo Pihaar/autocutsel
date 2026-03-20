@@ -1,4 +1,4 @@
-.TH AUTOCUTSEL 1 "March 2026" "autocutsel 0.10.1" "General Commands Manual"
+.TH AUTOCUTSEL 1 "March 2026" "autocutsel 0.11.0" "General Commands Manual"
 .SH NAME
 autocutsel \- keep the X clipboard and the cutbuffer in sync
 .SH SYNOPSIS
@@ -98,6 +98,99 @@ Sync PRIMARY to CLIPBOARD on mouse selection only (single instance):
 .RS
 autocutsel \-selection PRIMARY \-mouseonly
 .RE
+.SH INSTANCE MANAGEMENT
+.B autocutsel
+automatically prevents multiple instances for the same selection. If an
+instance monitoring the same selection is already running, additional
+invocations will print a message to stderr and exit. This makes it safe to
+place
+.B autocutsel
+in
+.I .bashrc
+or
+.I .xinitrc
+without spawning duplicate processes.
+.PP
+Different selections can still be monitored concurrently (e.g. one instance
+for CLIPBOARD and one for PRIMARY).
+.SH SYSTEMD
+.B autocutsel
+can be run as a systemd user service. A template unit
+.RB ( autocutsel@.service )
+and example configuration files are provided in
+.IR contrib/systemd/ .
+Each instance reads its options from
+.IR ~/.config/autocutsel/<instance>.args .
+.PP
+.B Install the service:
+.PP
+If installed from an RPM package, the service file is already at
+.IR /usr/lib/systemd/user/autocutsel@.service .
+Just create the configuration:
+.PP
+.RS
+.nf
+mkdir \-p ~/.config/autocutsel
+cp /usr/share/doc/autocutsel/examples/mouseonly.args ~/.config/autocutsel/
+.fi
+.RE
+.PP
+For manual installation:
+.PP
+.RS
+.nf
+mkdir \-p ~/.config/autocutsel ~/.config/systemd/user
+cp contrib/systemd/autocutsel@.service ~/.config/systemd/user/
+cp contrib/systemd/mouseonly.args ~/.config/autocutsel/
+.fi
+.RE
+.PP
+.B Available example configurations:
+.TP
+.I mouseonly.args
+Sync PRIMARY to CLIPBOARD on mouse selection only (recommended, single instance).
+.TP
+.I clipboard.args
+Sync CLIPBOARD with the cutbuffer (traditional setup, use together with primary.args).
+.TP
+.I primary.args
+Sync PRIMARY with the cutbuffer (traditional setup, use together with clipboard.args).
+.PP
+Enable a single mouseonly instance (recommended):
+.PP
+.RS
+.nf
+systemctl \-\-user daemon\-reload
+systemctl \-\-user enable \-\-now autocutsel@mouseonly
+.fi
+.RE
+.PP
+Or enable the traditional two\-instance setup:
+.PP
+.RS
+.nf
+systemctl \-\-user daemon\-reload
+systemctl \-\-user enable \-\-now autocutsel@clipboard autocutsel@primary
+.fi
+.RE
+.PP
+View logs with:
+.B journalctl \-\-user \-u 'autocutsel@*'
+.PP
+The service file includes systemd hardening options (sandboxing via
+.BR PrivateUsers ,
+.BR ProtectHome ,
+.BR ProtectSystem ,
+.BR NoNewPrivileges ,
+etc.). The service uses
+.B ConditionEnvironment=DISPLAY
+to only start when an X11 display is available.
+.PP
+.B Compatibility:
+The systemd service works on GNOME (since 3.34) and KDE Plasma (since 5.25)
+on both X11 and Wayland. XFCE and standalone window managers do not activate
+.B graphical\-session.target
+by default and require manual setup.
 .SH AUTHORS
 Originally written by Michael Witrant <mike@lepton.fr>.
 .br

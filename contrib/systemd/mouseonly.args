@@ -1,0 +1,7 @@
+# autocutsel instance: mouseonly
+# Sync PRIMARY to CLIPBOARD on mouse selection only (single instance).
+# Place at ~/.config/autocutsel/mouseonly.args
+#
+# Enable with: systemctl --user enable --now autocutsel@mouseonly
+
+AUTOCUTSEL_OPTS=-selection PRIMARY -mouseonly

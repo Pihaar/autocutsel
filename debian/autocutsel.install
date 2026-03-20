@@ -1,0 +1,4 @@
+contrib/systemd/autocutsel@.service /usr/lib/systemd/user/
+contrib/systemd/mouseonly.args /usr/share/doc/autocutsel/examples/
+contrib/systemd/clipboard.args /usr/share/doc/autocutsel/examples/
+contrib/systemd/primary.args /usr/share/doc/autocutsel/examples/

@@ -56,7 +56,8 @@ static void *libinput_thread(void *arg)
   struct pollfd pfd = { .fd = libinput_get_fd(li), .events = POLLIN };
 
   while (1) {
-    poll(&pfd, 1, -1);
+    if (poll(&pfd, 1, -1) < 0)
+      continue;
     libinput_dispatch(li);
     struct libinput_event *ev;
     while ((ev = libinput_get_event(li)) != NULL) {
@@ -117,8 +118,6 @@ static XtResource resources[] = {
     Offset(verbose_option), XtRString, "off"},
   {"fork", "Fork", XtRString, sizeof(String),
     Offset(fork_option), XtRString, "off"},
-  {"kill", "kill", XtRString, sizeof(String),
-    Offset(kill), XtRString, "off"},
   {"pause", "Pause", XtRInt, sizeof(int),
     Offset(pause), XtRImmediate, (XtPointer)500},
   {"buttonup", "ButtonUp", XtRString, sizeof(String),
@@ -151,7 +150,7 @@ static void CleanupLibinput(void)
 
 static void Terminate(int caught)
 {
-  exit (0);
+  _exit(0);
 }
 
 static void TrapSignals()
@@ -197,21 +196,23 @@ static int ValueDiffers(char *value, int length)
 // Update the current value
 static void ChangeValue(char *value, int length)
 {
+  char *new_value = XtMalloc(length);
+  if (!new_value) {
+    printf("WARNING: Unable to allocate memory to store the new value\n");
+    return;
+  }
+
   if (options.value)
     XtFree(options.value);
 
   options.length = length;
-  options.value = XtMalloc(options.length);
-  if (!options.value)
-    printf("WARNING: Unable to allocate memory to store the new value\n");
-  else {
-    memcpy(options.value, value, options.length);
+  options.value = new_value;
+  memcpy(options.value, value, options.length);
 
-    if (options.debug) {
-      printf("New value saved: ");
-      PrintValue(options.value, options.length);
-      printf("\n");
-    }
+  if (options.debug) {
+    printf("New value saved: ");
+    PrintValue(options.value, options.length);
+    printf("\n");
   }
 }
 
@@ -479,6 +480,27 @@ int main(int argc, char* argv[])
   XtAppAddTimeOut(context, options.pause, timeout, 0);
   XtRealizeWidget(top);
   XUnmapWindow(XtDisplay(top), XtWindow(top));
+
+  // Single-instance check: use a lock selection per monitored selection name
+  {
+    char lock_name[256];
+    snprintf(lock_name, sizeof(lock_name), "_AUTOCUTSEL_LOCK_%s",
+             options.selection_name);
+    Atom lock_atom = XInternAtom(dpy, lock_name, 0);
+
+    if (XGetSelectionOwner(dpy, lock_atom) != None) {
+      fprintf(stderr, "autocutsel: another instance is already running"
+                      " for selection %s\n", options.selection_name);
+      return 0;
+    }
+
+    XSetSelectionOwner(dpy, lock_atom, XtWindow(top), CurrentTime);
+    if (XGetSelectionOwner(dpy, lock_atom) != XtWindow(top)) {
+      fprintf(stderr, "autocutsel: could not acquire instance lock"
+                      " for selection %s\n", options.selection_name);
+      return 1;
+    }
+  }
 
   // Set up libinput for mouseonly mode: listen for pointer button events
   options.li = NULL;

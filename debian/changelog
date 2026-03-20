@@ -1,0 +1,8 @@
+autocutsel (0.11.0-1) unstable; urgency=medium
+
+  * Fork with -mouseonly option for mouse-only PRIMARY to CLIPBOARD sync.
+  * Add single-instance prevention via X selection lock.
+  * Add systemd user service template (autocutsel@.service).
+  * Security fixes: atomic operations, signal safety, memory leak fixes.
+
+ -- Patrick Haar <patrick@haar-family.de>  Thu, 20 Mar 2026 10:00:00 +0100

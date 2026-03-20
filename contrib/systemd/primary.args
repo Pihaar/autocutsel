@@ -1,0 +1,8 @@
+# autocutsel instance: primary
+# Sync PRIMARY selection with the cutbuffer.
+# Place at ~/.config/autocutsel/primary.args
+#
+# Enable with: systemctl --user enable --now autocutsel@primary
+# Usually combined with: systemctl --user enable --now autocutsel@clipboard
+
+AUTOCUTSEL_OPTS=-selection PRIMARY

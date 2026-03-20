@@ -1,0 +1,31 @@
+Source: autocutsel
+Section: x11
+Priority: optional
+Maintainer: Patrick Haar <patrick@haar-family.de>
+Build-Depends: debhelper-compat (= 13),
+               autoconf,
+               automake,
+               libtool,
+               libx11-dev,
+               libxt-dev,
+               libxmu-dev,
+               libxaw7-dev,
+               libxext-dev,
+               libinput-dev,
+               libudev-dev,
+               pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/Pihaar/autocutsel
+Rules-Requires-Root: no
+
+Package: autocutsel
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Keep the X clipboard and the cutbuffer in sync
+ autocutsel tracks changes in the server's cutbuffer and clipboard
+ selection, keeping them synchronized.
+ .
+ This fork adds the -mouseonly option which synchronizes PRIMARY to
+ CLIPBOARD only when text is selected with the mouse. Keyboard-based
+ selections (e.g. Shift+Arrow) are ignored, preventing accidental
+ clipboard overwrites in editors like VSCode.

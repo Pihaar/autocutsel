@@ -1,5 +1,9 @@
+# libtool rewrites source paths during compilation, causing find-debuginfo
+# to produce an empty debugsourcefiles.list.  Keep debuginfo, skip debugsource.
+%global _debugsource_packages 0
+
 Name:           autocutsel
-Version:        0.10.1
+Version:        0.11.0
 Release:        2%{?dist}
 Summary:        Synchronize X selections and cutbuffer with mouse-only support
 License:        GPL-2.0-or-later
@@ -19,6 +23,7 @@ BuildRequires:  pkgconfig(xext)
 BuildRequires:  pkgconfig(libinput)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  libXaw-devel
+BuildRequires:  systemd-rpm-macros
 
 %description
 autocutsel tracks changes in the server's cutbuffer and clipboard selection,
@@ -43,6 +48,10 @@ editors like VSCode.
 %files
 %license COPYING
 %doc README AUTHORS ChangeLog TODO
+%{_docdir}/autocutsel/examples/mouseonly.args
+%{_docdir}/autocutsel/examples/clipboard.args
+%{_docdir}/autocutsel/examples/primary.args
 %{_bindir}/autocutsel
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*
+%{_prefix}/lib/systemd/user/autocutsel@.service

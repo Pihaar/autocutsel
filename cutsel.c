@@ -84,9 +84,10 @@ static void PrintSelection(Widget w, XtPointer client_data, Atom *selection,
 
   if (*type == 0)
     printf("Nobody owns the selection\n");
-  else if (*type == XA_STRING)
-      printf("%s\n", (char*)value);
-  else {
+  else if (*type == XA_STRING) {
+      fwrite((char*)value, 1, *received_length, stdout);
+      putchar('\n');
+  } else {
     char *name = XGetAtomName(d, *type);
     printf("Invalid type received: %s\n", name);
     XFree(name);

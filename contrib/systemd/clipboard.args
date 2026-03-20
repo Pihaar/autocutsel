@@ -1,0 +1,8 @@
+# autocutsel instance: clipboard
+# Sync CLIPBOARD selection with the cutbuffer (default behavior).
+# Place at ~/.config/autocutsel/clipboard.args
+#
+# Enable with: systemctl --user enable --now autocutsel@clipboard
+# Usually combined with: systemctl --user enable --now autocutsel@primary
+
+AUTOCUTSEL_OPTS=

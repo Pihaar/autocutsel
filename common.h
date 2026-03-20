@@ -60,7 +60,6 @@ typedef struct {
   String  verbose_option;
   String  fork_option;
   String  buttonup_option;
-  String  kill;
   int     pause;
   int     debug;
   int     verbose;

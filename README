@@ -51,6 +51,11 @@ To install it (as root):
 To run it:
  autocutsel
 
+autocutsel automatically prevents multiple instances for the same selection.
+If an instance is already running, additional starts will exit silently.
+This makes it safe to put autocutsel in your .bashrc or .xinitrc without
+spawning duplicate processes.
+
 By default, autocutsel synchronizes the CLIPBOARD selection. You may want to use
 the PRIMARY selection instead, if your applications use Motif or another toolkit
 not using the CLIPBOARD. To do that, simply run
@@ -83,6 +88,46 @@ The "-mouseonly" option requires read access to input devices (/dev/input/*).
 The user running autocutsel must be a member of the "input" group:
  sudo usermod -aG input $USER
 A re-login is required for the group change to take effect.
+
+Running as a systemd user service:
+
+autocutsel uses a systemd template unit (autocutsel@.service) that supports
+multiple instances. Each instance reads its configuration from
+~/.config/autocutsel/<instance>.args.
+
+If installed from an RPM package, the service file is already at
+/usr/lib/systemd/user/autocutsel@.service. Just create the config directory
+and copy the example args files:
+
+ mkdir -p ~/.config/autocutsel
+ cp /usr/share/doc/autocutsel/examples/mouseonly.args ~/.config/autocutsel/
+
+For manual installation:
+
+ mkdir -p ~/.config/autocutsel ~/.config/systemd/user
+ cp contrib/systemd/autocutsel@.service ~/.config/systemd/user/
+ cp contrib/systemd/mouseonly.args ~/.config/autocutsel/
+
+Available example configurations:
+ - mouseonly.args  : sync PRIMARY to CLIPBOARD on mouse selection only (recommended)
+ - clipboard.args  : sync CLIPBOARD with cutbuffer (traditional, needs primary.args too)
+ - primary.args    : sync PRIMARY with cutbuffer (traditional, needs clipboard.args too)
+
+Enable a single mouseonly instance (recommended):
+
+ systemctl --user daemon-reload
+ systemctl --user enable --now autocutsel@mouseonly
+
+Or enable the traditional two-instance setup:
+
+ systemctl --user daemon-reload
+ systemctl --user enable --now autocutsel@clipboard autocutsel@primary
+
+View logs with: journalctl --user -u 'autocutsel@*'
+
+The systemd service works on GNOME (since 3.34) and KDE Plasma (since 5.25) on
+both X11 and Wayland. XFCE and standalone window managers do not activate
+graphical-session.target by default and require manual setup.
 
 This is a fork of autocutsel by Michael Witrant. Thanks to him for creating
 the original project.
