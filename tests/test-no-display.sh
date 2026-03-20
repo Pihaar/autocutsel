@@ -10,6 +10,19 @@ echo "=== No-display tests ==="
 
 echo "Binary checks:"
 
+# Resolve libtool wrapper scripts to real binaries in .libs/
+resolve_binary() {
+  _bin="$1"
+  if [ -x "$_bin" ] && file "$_bin" | grep -q "shell script" && [ -x ".libs/$(basename "$_bin")" ]; then
+    echo ".libs/$(basename "$_bin")"
+  else
+    echo "$_bin"
+  fi
+}
+
+AUTOCUTSEL_REAL=$(resolve_binary "$AUTOCUTSEL")
+CUTSEL_REAL=$(resolve_binary "$CUTSEL")
+
 _tests_run=$((_tests_run + 1))
 if [ -x "$AUTOCUTSEL" ]; then
   _tests_passed=$((_tests_passed + 1))
@@ -28,9 +41,9 @@ else
   echo "  FAIL: cutsel binary not found or not executable: $CUTSEL"
 fi
 
-# Verify they are ELF binaries (not accidentally a shell script or empty)
+# Verify they are ELF binaries (use resolved paths for libtool builds)
 _tests_run=$((_tests_run + 1))
-if file "$AUTOCUTSEL" | grep -q "ELF"; then
+if file "$AUTOCUTSEL_REAL" | grep -q "ELF"; then
   _tests_passed=$((_tests_passed + 1))
   echo "  PASS: autocutsel is an ELF binary"
 else
@@ -39,7 +52,7 @@ else
 fi
 
 _tests_run=$((_tests_run + 1))
-if file "$CUTSEL" | grep -q "ELF"; then
+if file "$CUTSEL_REAL" | grep -q "ELF"; then
   _tests_passed=$((_tests_passed + 1))
   echo "  PASS: cutsel is an ELF binary"
 else
@@ -54,7 +67,7 @@ echo "Library linkage:"
 
 for _lib in libX11 libXt libXmu libXaw libinput; do
   _tests_run=$((_tests_run + 1))
-  if ldd "$AUTOCUTSEL" 2>/dev/null | grep -q "$_lib"; then
+  if ldd "$AUTOCUTSEL_REAL" 2>/dev/null | grep -q "$_lib"; then
     _tests_passed=$((_tests_passed + 1))
     echo "  PASS: autocutsel links $_lib"
   else
@@ -65,7 +78,7 @@ done
 
 # cutsel should NOT link libinput (it doesn't use mouseonly)
 _tests_run=$((_tests_run + 1))
-if ldd "$CUTSEL" 2>/dev/null | grep -q "libX11"; then
+if ldd "$CUTSEL_REAL" 2>/dev/null | grep -q "libX11"; then
   _tests_passed=$((_tests_passed + 1))
   echo "  PASS: cutsel links libX11"
 else
@@ -74,7 +87,7 @@ else
 fi
 
 _tests_run=$((_tests_run + 1))
-if ldd "$CUTSEL" 2>/dev/null | grep -q "libinput"; then
+if ldd "$CUTSEL_REAL" 2>/dev/null | grep -q "libinput"; then
   _tests_failed=$((_tests_failed + 1))
   echo "  FAIL: cutsel should NOT link libinput"
 else
