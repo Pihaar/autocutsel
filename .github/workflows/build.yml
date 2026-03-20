@@ -13,7 +13,7 @@ jobs:
     outputs:
       version: ${{ steps.get.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Extract version from configure.ac
         id: get
@@ -51,7 +51,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel systemd-devel
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -74,7 +74,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -98,7 +98,7 @@ jobs:
             libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
             libinput-dev libudev-dev
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -122,7 +122,7 @@ jobs:
             libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
             libinput-dev libudev-dev
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -145,7 +145,7 @@ jobs:
             libx11 libxt libxmu libxaw libxext \
             libinput systemd
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -169,7 +169,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel systemd-devel
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create source tarball
         run: |
@@ -184,7 +184,7 @@ jobs:
         run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-fedora
           path: ~/rpmbuild/RPMS/**/*.rpm
@@ -202,7 +202,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create source tarball
         run: |
@@ -217,7 +217,7 @@ jobs:
         run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: rpm-opensuse
           path: /usr/src/packages/RPMS/**/*.rpm
@@ -237,7 +237,7 @@ jobs:
             libinput-dev libudev-dev \
             debhelper fakeroot dpkg-dev
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
@@ -246,7 +246,7 @@ jobs:
         run: cp ../*.deb .
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: deb-ubuntu
           path: '*.deb'
@@ -266,7 +266,7 @@ jobs:
             libinput-dev libudev-dev \
             debhelper fakeroot dpkg-dev
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
@@ -275,7 +275,7 @@ jobs:
         run: cp ../*.deb .
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: deb-debian
           path: '*.deb'
@@ -298,7 +298,7 @@ jobs:
           useradd -m builder
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create source tarball
         run: |
@@ -314,7 +314,7 @@ jobs:
           su builder -c 'makepkg -sf --noconfirm'
 
       - name: Upload PKG
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pkg-archlinux
           path: '*.pkg.tar.zst'

@@ -56,3 +56,16 @@ text editors.
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*
 %{_prefix}/lib/systemd/user/autocutsel@.service
+
+%changelog
+* Thu Mar 20 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.0-2
+- Reorganize directory structure (src/, contrib/rpm/, contrib/arch/)
+- Fix CI portability: replace pipe2() with pipe()+fcntl()
+- Fix openSUSE docdir path mismatch
+
+* Wed Mar 19 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.0-1
+- Wayland auto-detection with direct selection sync
+- Pipe-based mouseonly mouse release detection
+- Encoding conversion support (-encoding option)
+- Instance management (prevent duplicate processes)
+- Systemd user service with hardening options
