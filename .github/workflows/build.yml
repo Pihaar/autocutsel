@@ -309,6 +309,7 @@ jobs:
 
       - name: Build package
         run: |
+          cp contrib/arch/PKGBUILD .
           chown -R builder:builder .
           su builder -c 'makepkg -sf --noconfirm'
 

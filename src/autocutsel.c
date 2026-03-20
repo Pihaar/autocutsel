@@ -85,7 +85,8 @@ static void *libinput_thread(void *arg)
           // Signal the Xt main loop via pipe for immediate processing
           if (mouse_pipe[1] >= 0) {
             char c = 'r';
-            (void)write(mouse_pipe[1], &c, 1);
+            if (write(mouse_pipe[1], &c, 1) < 0 && errno != EAGAIN)
+              perror("mouse_pipe write");
           }
         }
       }

@@ -39,7 +39,7 @@ text editors.
 
 %build
 ./bootstrap
-%configure
+%configure --docdir=%{_docdir}/%{name}
 %make_build
 
 %install
