@@ -3,11 +3,12 @@ ACLOCAL_AMFLAGS = -I m4
 bin_PROGRAMS = autocutsel cutsel
 
 autocutsel_SOURCES = src/autocutsel.c src/common.c
+autocutsel_LDADD = @AUTOCUTSEL_LIBS@
 cutsel_SOURCES = src/cutsel.c src/common.c
 
 noinst_HEADERS = src/common.h
 
-man1_MANS = autocutsel.1
+man1_MANS = autocutsel.1 cutsel.1
 
 TESTS = tests/test-no-display.sh \
 	tests/test-cli.sh \
@@ -32,7 +33,7 @@ autocutselargs_DATA = contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \
 	contrib/systemd/primary.args
 
-EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in \
+EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in cutsel.1.in \
 	bootstrap \
 	tests/helpers.sh \
 	tests/test-no-display.sh \

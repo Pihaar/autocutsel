@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([autocutsel],[0.11.0])
+AC_INIT([autocutsel],[0.11.1],[https://github.com/Pihaar/autocutsel/issues])
 AC_CONFIG_SRCDIR([src/autocutsel.c])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
@@ -36,15 +36,15 @@ AC_CHECK_LIB(Xmu, XmuGetHostname,
 
 PKG_CHECK_MODULES([LIBINPUT], [libinput],
   [CFLAGS="$CFLAGS $LIBINPUT_CFLAGS"
-   LIBS="$LIBS $LIBINPUT_LIBS"],
+   AC_DEFINE([USE_LIBINPUT], [1], [Define if libinput is available])],
   AC_MSG_ERROR(Unable to find libinput))
 
 PKG_CHECK_MODULES([LIBUDEV], [libudev],
-  [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"
-   LIBS="$LIBS $LIBUDEV_LIBS"],
+  [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"],
   AC_MSG_ERROR(Unable to find libudev))
 
-LIBS="$LIBS -lpthread"
+AUTOCUTSEL_LIBS="$LIBINPUT_LIBS $LIBUDEV_LIBS -lpthread"
+AC_SUBST([AUTOCUTSEL_LIBS])
 
 dnl Checks for library functions.
 AC_FUNC_SETPGRP
@@ -58,5 +58,5 @@ else
   AC_MSG_RESULT(no)
 fi
 
-AC_CONFIG_FILES([Makefile autocutsel.1])
+AC_CONFIG_FILES([Makefile autocutsel.1 cutsel.1])
 AC_OUTPUT

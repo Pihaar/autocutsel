@@ -19,7 +19,7 @@ jobs:
       - name: Extract version from configure.ac
         id: get
         run: |
-          ver=$(sed -n 's/^AC_INIT(\[autocutsel\],\[\(.*\)\])/\1/p' configure.ac)
+          ver=$(sed -n 's/^AC_INIT(\[autocutsel\],\[\([^]]*\)\].*/\1/p' configure.ac)
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Version: $ver"
 
@@ -63,6 +63,9 @@ jobs:
       - name: Build
         run: make
 
+      - name: Test
+        run: make check
+
   build-opensuse:
     name: Build (openSUSE)
     runs-on: ubuntu-latest
@@ -85,6 +88,9 @@ jobs:
 
       - name: Build
         run: make
+
+      - name: Test
+        run: make check
 
   build-ubuntu:
     name: Build (Ubuntu)
@@ -110,6 +116,9 @@ jobs:
       - name: Build
         run: make
 
+      - name: Test
+        run: make check
+
   build-debian:
     name: Build (Debian)
     runs-on: ubuntu-latest
@@ -134,6 +143,9 @@ jobs:
       - name: Build
         run: make
 
+      - name: Test
+        run: make check
+
   build-archlinux:
     name: Build (Arch Linux)
     runs-on: ubuntu-latest
@@ -156,6 +168,35 @@ jobs:
 
       - name: Build
         run: make
+
+      - name: Test
+        run: make check
+
+  sanitizers:
+    name: Sanitizers (Fedora)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc make autoconf automake libtool \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel systemd-devel libasan libubsan
+
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure (ASan + UBSan)
+        run: ./configure CFLAGS="-g -fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: make
+
+      - name: Test
+        run: make check
 
   rpm-fedora:
     name: RPM (Fedora)
@@ -300,7 +341,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
 
       - name: Upload assets to release
         env:

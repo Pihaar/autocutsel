@@ -1,6 +1,6 @@
 # Maintainer: Patrick Haar <Pihaar@users.noreply.github.com>
 pkgname=autocutsel
-pkgver=0.11.0
+pkgver=0.11.1
 pkgrel=1
 pkgdesc='Keep the X clipboard and the cutbuffer in sync (with -mouseonly support)'
 arch=('x86_64')
@@ -16,6 +16,11 @@ build() {
   ./bootstrap
   ./configure --prefix=/usr
   make
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  make check
 }
 
 package() {

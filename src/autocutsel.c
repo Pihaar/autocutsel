@@ -51,6 +51,7 @@ static const struct libinput_interface li_interface = {
 
 static _Atomic(int) li_thread_running = 1;
 static pthread_t li_thread_id;
+static int li_thread_created = 0;
 static Atom utf8_atom;
 static int mouse_pipe[2] = {-1, -1};
 
@@ -118,7 +119,7 @@ static XrmOptionDescRec optionDesc[] = {
   {"-e",         "encoding",  XrmoptionSepArg, NULL},
 };
 
-int Syntax(char *call)
+static void __attribute__((noreturn)) Syntax(char *call)
 {
   fprintf (stderr,
     "usage:  %s [-selection <name>] [-cutbuffer <number>]"
@@ -153,13 +154,13 @@ static XtResource resources[] = {
 
 #undef Offset
 
-static void CloseStdFds()
+static void CloseStdFds(void)
 {
   int fd = open("/dev/null", O_RDWR);
   if (fd >= 0) {
-    dup2(fd, 0);
-    dup2(fd, 1);
-    dup2(fd, 2);
+    if (dup2(fd, 0) < 0) perror("dup2 stdin");
+    if (dup2(fd, 1) < 0) perror("dup2 stdout");
+    if (dup2(fd, 2) < 0) perror("dup2 stderr");
     if (fd > 2)
       close(fd);
   }
@@ -169,7 +170,7 @@ static void CleanupLibinput(void)
 {
   if (options.li) {
     atomic_store(&li_thread_running, 0);
-    if (li_thread_id)
+    if (li_thread_created)
       pthread_join(li_thread_id, NULL);
     libinput_unref(options.li);
     options.li = NULL;
@@ -185,7 +186,7 @@ static void Terminate(int caught)
   _exit(0);
 }
 
-static void TrapSignals()
+static void TrapSignals(void)
 {
   struct sigaction action;
   sigemptyset (&action.sa_mask);
@@ -293,7 +294,7 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
 }
 
 // Look for change in the buffer, and update the selection if necessary
-static void CheckBuffer()
+static void CheckBuffer(void)
 {
   char *value;
   int length;
@@ -605,8 +606,14 @@ int main(int argc, char* argv[])
 
   buffer = 0;
 
-  if (!options.wayland)
-    options.value = XFetchBuffer(dpy, &options.length, buffer);
+  if (!options.wayland) {
+    char *xbuf = XFetchBuffer(dpy, &options.length, buffer);
+    if (xbuf && options.length > 0) {
+      options.value = XtMalloc(options.length);
+      memcpy(options.value, xbuf, options.length);
+    }
+    XFree(xbuf);
+  }
 
   {
     unsigned long interval = options.mouseonly ? 50 : options.pause;
@@ -651,23 +658,32 @@ int main(int argc, char* argv[])
             options.li = NULL;
             options.mouseonly = 0;
           } else {
-            fcntl(mouse_pipe[0], F_SETFD, FD_CLOEXEC);   // close on exec
-            fcntl(mouse_pipe[1], F_SETFD, FD_CLOEXEC);   // close on exec
-            fcntl(mouse_pipe[0], F_SETFL, O_NONBLOCK);    // non-blocking read end
-            fcntl(mouse_pipe[1], F_SETFL, O_NONBLOCK);    // non-blocking write end
-            // Start dedicated thread for libinput event processing
-            pthread_t li_thread;
-            if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {
-              li_thread_id = li_thread;
-              if (options.debug)
-                printf("libinput mouseonly mode enabled (threaded)\n");
-            } else {
-              fprintf(stderr, "WARNING: could not create libinput thread\n");
+            if (fcntl(mouse_pipe[0], F_SETFD, FD_CLOEXEC) < 0 ||
+                fcntl(mouse_pipe[1], F_SETFD, FD_CLOEXEC) < 0 ||
+                fcntl(mouse_pipe[0], F_SETFL, O_NONBLOCK) < 0 ||
+                fcntl(mouse_pipe[1], F_SETFL, O_NONBLOCK) < 0) {
+              perror("fcntl mouse_pipe");
               close(mouse_pipe[0]); close(mouse_pipe[1]);
               mouse_pipe[0] = mouse_pipe[1] = -1;
               libinput_unref(options.li);
               options.li = NULL;
               options.mouseonly = 0;
+            } else {
+              // Start dedicated thread for libinput event processing
+              pthread_t li_thread;
+              if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {
+                li_thread_id = li_thread;
+                li_thread_created = 1;
+                if (options.debug)
+                  printf("libinput mouseonly mode enabled (threaded)\n");
+              } else {
+                fprintf(stderr, "WARNING: could not create libinput thread\n");
+                close(mouse_pipe[0]); close(mouse_pipe[1]);
+                mouse_pipe[0] = mouse_pipe[1] = -1;
+                libinput_unref(options.li);
+                options.li = NULL;
+                options.mouseonly = 0;
+              }
             }
           }
         } else {
@@ -692,12 +708,12 @@ int main(int argc, char* argv[])
   /* Set up window properties so that the PID of the relevant autocutsel
    * process is known and autocutsel windows can be identified as such when
    * debugging. */
-  const int _NET_WM_NAME = 0;
-  const int UTF8_STRING = 1;
-  const int WM_NAME = 2;
-  const int STRING = 3;
-  const int _NET_WM_PID = 4;
-  const int CARDINAL = 5;
+  const int IDX_NET_WM_NAME = 0;
+  const int IDX_UTF8_STRING = 1;
+  const int IDX_WM_NAME = 2;
+  const int IDX_STRING = 3;
+  const int IDX_NET_WM_PID = 4;
+  const int IDX_CARDINAL = 5;
 
   Atom atoms[6];
   char *names[6] = {
@@ -711,11 +727,11 @@ int main(int argc, char* argv[])
   XInternAtoms(dpy, names, 6, 0, atoms);
 
   const char *window_name = "autocutsel";
-  pid_t pid = getpid();
+  unsigned long pid = (unsigned long)getpid();
 
-  XChangeProperty(dpy, XtWindow(top), atoms[_NET_WM_NAME], atoms[UTF8_STRING], 8, PropModeReplace, (const unsigned char*)window_name, strlen(window_name));
-  XChangeProperty(dpy, XtWindow(top), atoms[WM_NAME], atoms[STRING], 8, PropModeReplace, (const unsigned char*)window_name, strlen(window_name));
-  XChangeProperty(dpy, XtWindow(top), atoms[_NET_WM_PID], atoms[CARDINAL], 32, PropModeReplace, (const unsigned char*)&pid, 1);
+  XChangeProperty(dpy, XtWindow(top), atoms[IDX_NET_WM_NAME], atoms[IDX_UTF8_STRING], 8, PropModeReplace, (const unsigned char*)window_name, (int)strlen(window_name));
+  XChangeProperty(dpy, XtWindow(top), atoms[IDX_WM_NAME], atoms[IDX_STRING], 8, PropModeReplace, (const unsigned char*)window_name, (int)strlen(window_name));
+  XChangeProperty(dpy, XtWindow(top), atoms[IDX_NET_WM_PID], atoms[IDX_CARDINAL], 32, PropModeReplace, (const unsigned char*)&pid, 1);
 
   XtAppMainLoop(context);
 

@@ -39,7 +39,7 @@ static XrmOptionDescRec optionDesc[] = {
   {"-v",         "verbose",   XrmoptionNoArg,  "on"},
 };
 
-int Syntax(char *call)
+static void __attribute__((noreturn)) Syntax(char *call)
 {
   fprintf (stderr,
     "usage:  %s [-selection <name>] [-cutbuffer <number>] [-debug] [-verbose] cut|sel [<value>]\n",
@@ -257,6 +257,7 @@ int main(int argc, char* argv[])
         fwrite(options.value, 1, options.length, stdout);
         putchar('\n');
       }
+      XFree(options.value);
       exit(0);
     }
   } else if (strcmp(argv[1], "sel") == 0) {

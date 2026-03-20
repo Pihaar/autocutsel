@@ -73,6 +73,15 @@ else
   echo "  FAIL: cutsel does not link libX11"
 fi
 
+_tests_run=$((_tests_run + 1))
+if ldd "$CUTSEL" 2>/dev/null | grep -q "libinput"; then
+  _tests_failed=$((_tests_failed + 1))
+  echo "  FAIL: cutsel should NOT link libinput"
+else
+  _tests_passed=$((_tests_passed + 1))
+  echo "  PASS: cutsel does not link libinput"
+fi
+
 # --- Graceful failure without DISPLAY ---
 
 echo ""

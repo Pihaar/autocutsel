@@ -44,6 +44,9 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <iconv.h>
+
+#ifdef USE_LIBINPUT
 #include <stdatomic.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -51,7 +54,7 @@
 #include <libinput.h>
 #include <libudev.h>
 #include <linux/input-event-codes.h>
-#include <iconv.h>
+#endif
 
 
 /*
@@ -77,8 +80,10 @@ typedef struct {
   int     buttonup;
   String  mouseonly_option;
   int     mouseonly;
+#ifdef USE_LIBINPUT
   atomic_int mouse_grace_ticks;
   struct libinput *li;
+#endif
   Atom    target;
   int     own_target;
   int     wayland;

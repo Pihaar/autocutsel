@@ -1,3 +1,13 @@
+autocutsel (0.11.1-1) unstable; urgency=medium
+
+  * Code quality improvements: fix XChangeProperty PID type, fix allocator
+    mismatch, add cutsel.1 man page, split library linkage, add sanitizer CI.
+  * Guard libinput headers behind USE_LIBINPUT for cleaner cutsel compilation.
+  * Add make check to all CI build jobs and RPM %check sections.
+  * Fix debian/changelog day-of-week, add .gitignore entry for cutsel.1.
+
+ -- Patrick Haar <Pihaar@users.noreply.github.com>  Sat, 21 Mar 2026 00:15:00 +0100
+
 autocutsel (0.11.0-1) unstable; urgency=medium
 
   * Fork with -mouseonly option for mouse-only PRIMARY to CLIPBOARD sync.
@@ -5,4 +15,4 @@ autocutsel (0.11.0-1) unstable; urgency=medium
   * Add systemd user service template (autocutsel@.service).
   * Security fixes: atomic operations, signal safety, memory leak fixes.
 
- -- Patrick Haar <Pihaar@users.noreply.github.com>  Thu, 20 Mar 2026 10:00:00 +0100
+ -- Patrick Haar <Pihaar@users.noreply.github.com>  Fri, 20 Mar 2026 10:00:00 +0100

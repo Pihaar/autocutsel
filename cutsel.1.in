@@ -1,0 +1,130 @@
+.TH CUTSEL 1 "March 2026" "cutsel @PACKAGE_VERSION@" "General Commands Manual"
+.SH NAME
+cutsel \- command\-line access to X selections and the cutbuffer
+.SH SYNOPSIS
+.B cutsel
+.RB [ \-selection
+.IR name ]
+.RB [ \-cutbuffer
+.IR number ]
+.RB [ \-debug ]
+.RB [ \-verbose ]
+.B cut
+.RI [ value ]
+.br
+.B cutsel
+.RB [ \-selection
+.IR name ]
+.RB [ \-cutbuffer
+.IR number ]
+.RB [ \-debug ]
+.RB [ \-verbose ]
+.B sel
+.RI [ value ]
+.br
+.B cutsel
+.RB [ \-selection
+.IR name ]
+.RB [ \-debug ]
+.RB [ \-verbose ]
+.B targets
+.br
+.B cutsel
+.RB [ \-selection
+.IR name ]
+.RB [ \-debug ]
+.RB [ \-verbose ]
+.B length
+.SH DESCRIPTION
+.B cutsel
+provides command\-line access to X selections and cutbuffers. It can read or
+write the cutbuffer, get or set the selection value, list the targets
+advertised by the current selection owner, and query the selection length.
+.SH SUBCOMMANDS
+.TP
+.BI "cut " [value]
+Without
+.IR value ,
+print the current content of the cutbuffer and exit.
+With
+.IR value ,
+store it in the cutbuffer.
+.TP
+.BI "sel " [value]
+Without
+.IR value ,
+print the current content of the selection and exit.
+With
+.IR value ,
+own the selection with the given value. The process stays running
+until the selection is claimed by another client.
+.TP
+.B targets
+List the TARGETS advertised by the current selection owner. This shows
+which formats the owner can convert the selection to.
+.TP
+.B length
+Query the LENGTH of the current selection value (as advertised by
+the selection owner).
+.SH OPTIONS
+.TP
+.BR \-selection ", " \-select ", " \-sel ", " \-s " " \fIname\fR
+Specify which selection to use. Default is CLIPBOARD.
+.TP
+.BR \-cutbuffer ", " \-cut ", " \-c " " \fInumber\fR
+Specify which cutbuffer to use. Default is 0.
+.TP
+.BR \-debug ", " \-d
+Print debugging information.
+.TP
+.BR \-verbose ", " \-v
+Be more verbose.
+.TP
+.B \-\-help
+Print usage information and exit. Does not require an X display.
+.TP
+.B \-\-version
+Print version information and exit. Does not require an X display.
+.SH EXAMPLES
+Print the current clipboard content:
+.PP
+.RS
+cutsel sel
+.RE
+.PP
+Set the clipboard to a specific value:
+.PP
+.RS
+cutsel sel "Hello, world"
+.RE
+.PP
+Print the current cutbuffer content:
+.PP
+.RS
+cutsel cut
+.RE
+.PP
+List the targets offered by the current clipboard owner:
+.PP
+.RS
+cutsel targets
+.RE
+.PP
+Read the PRIMARY selection instead of CLIPBOARD:
+.PP
+.RS
+cutsel \-selection PRIMARY sel
+.RE
+.SH SEE ALSO
+.BR autocutsel (1)
+.SH AUTHORS
+Originally written by Michael Witrant <mike@lepton.fr>.
+.br
+Original repository: https://github.com/sigmike/autocutsel
+.PP
+Fork: https://github.com/Pihaar/autocutsel
+.SH LICENSE
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.

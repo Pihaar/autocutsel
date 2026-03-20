@@ -199,7 +199,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
       char *name = XGetAtomName(d, *target);
       printf("Returning %s ", name);
       XFree(name);
-      PrintValue((char*)*value, *length);
+      PrintValue((char*)*value, (int)*length);
       printf("\n");
     }
 
@@ -236,7 +236,8 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
 
   if (XmuConvertStandardSelection(w, req->time, selection, target, type,
           (XPointer *)value, length, format)) {
-    printf("Returning conversion of standard selection\n");
+    if (options.debug)
+      printf("Returning conversion of standard selection\n");
     return True;
   }
 

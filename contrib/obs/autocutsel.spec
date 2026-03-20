@@ -59,6 +59,7 @@ text editors.
 %{_bindir}/autocutsel
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*
+%{_mandir}/man1/cutsel.1*
 %{_prefix}/lib/systemd/user/autocutsel@.service
 
 %changelog

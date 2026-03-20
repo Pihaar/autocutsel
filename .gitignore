@@ -33,8 +33,9 @@ cutsel
 # Autotools test harness
 test-driver
 
-# Generated from .in template
+# Generated from .in templates
 autocutsel.1
+cutsel.1
 
 # Packaging artifacts
 *.tar.gz

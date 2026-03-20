@@ -263,6 +263,8 @@ option is ignored on Wayland since no cutbuffer is involved.
 The
 .B \-mouseonly
 option already used direct selection sync and continues to work as before.
+.SH SEE ALSO
+.BR cutsel (1)
 .SH AUTHORS
 Originally written by Michael Witrant <mike@lepton.fr>.
 .br
