@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           dnf install -y \
-            gcc make autoconf automake libtool \
+            gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel systemd-devel
 
@@ -74,7 +74,7 @@ jobs:
       - name: Install dependencies
         run: |
           zypper --non-interactive install \
-            gcc make gawk autoconf automake libtool pkg-config \
+            gcc make gawk autoconf automake libtool pkg-config file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel
 
@@ -180,7 +180,7 @@ jobs:
       - name: Install dependencies
         run: |
           dnf install -y \
-            gcc make autoconf automake libtool \
+            gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel systemd-devel libasan libubsan
 
