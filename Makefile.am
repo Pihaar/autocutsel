@@ -17,7 +17,7 @@ autocutselargs_DATA = contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \
 	contrib/systemd/primary.args
 
-EXTRA_DIST = AUTHORS COPYING ChangeLog INSTALL README TODO test_autocutsel.rb autocutsel.1 \
+EXTRA_DIST = AUTHORS COPYING ChangeLog INSTALL README TODO test_autocutsel.rb autocutsel.1.in \
 	contrib/systemd/autocutsel@.service \
 	contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \

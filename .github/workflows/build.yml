@@ -7,6 +7,38 @@ on:
     branches: [master]
 
 jobs:
+  version:
+    name: Check version consistency
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from configure.ac
+        id: get
+        run: |
+          ver=$(sed -n 's/^AC_INIT(\[autocutsel\],\[\(.*\)\])/\1/p' configure.ac)
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Version: $ver"
+
+      - name: Verify packaging versions match
+        run: |
+          ver="${{ steps.get.outputs.version }}"
+          fail=0
+          check() {
+            if [ "$2" != "$ver" ]; then
+              echo "MISMATCH in $1: got '$2', expected '$ver'"
+              fail=1
+            else
+              echo "OK: $1 = $2"
+            fi
+          }
+          check "autocutsel.spec" "$(sed -n 's/^Version:[[:space:]]*//p' autocutsel.spec)"
+          check "PKGBUILD" "$(sed -n 's/^pkgver=//p' PKGBUILD)"
+          check "debian/changelog" "$(head -1 debian/changelog | sed 's/.*(\(.*\)-.*/\1/')"
+          exit $fail
+
   build-fedora:
     name: Build (Fedora)
     runs-on: ubuntu-latest
@@ -128,7 +160,7 @@ jobs:
     name: RPM (Fedora)
     runs-on: ubuntu-latest
     container: fedora:latest
-    needs: build-fedora
+    needs: [version, build-fedora]
     steps:
       - name: Install dependencies
         run: |
@@ -141,10 +173,11 @@ jobs:
 
       - name: Create source tarball
         run: |
+          ver="${{ needs.version.outputs.version }}"
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
-          tar czf "$topdir/SOURCES/autocutsel-0.11.0.tar.gz" \
-            --transform 's,^,autocutsel-0.11.0/,' \
+          tar czf "$topdir/SOURCES/autocutsel-${ver}.tar.gz" \
+            --transform "s,^,autocutsel-${ver}/," \
             --exclude=.git *
 
       - name: Build RPM
@@ -160,7 +193,7 @@ jobs:
     name: RPM (openSUSE)
     runs-on: ubuntu-latest
     container: opensuse/tumbleweed:latest
-    needs: build-opensuse
+    needs: [version, build-opensuse]
     steps:
       - name: Install dependencies
         run: |
@@ -173,10 +206,11 @@ jobs:
 
       - name: Create source tarball
         run: |
+          ver="${{ needs.version.outputs.version }}"
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
-          tar czf "$topdir/SOURCES/autocutsel-0.11.0.tar.gz" \
-            --transform 's,^,autocutsel-0.11.0/,' \
+          tar czf "$topdir/SOURCES/autocutsel-${ver}.tar.gz" \
+            --transform "s,^,autocutsel-${ver}/," \
             --exclude=.git *
 
       - name: Build RPM
@@ -250,7 +284,7 @@ jobs:
     name: PKG (Arch Linux)
     runs-on: ubuntu-latest
     container: archlinux:base-devel
-    needs: build-archlinux
+    needs: [version, build-archlinux]
     steps:
       - name: Install dependencies
         run: |
@@ -268,8 +302,9 @@ jobs:
 
       - name: Create source tarball
         run: |
-          tar czf autocutsel-0.11.0.tar.gz \
-            --transform 's,^,autocutsel-0.11.0/,' \
+          ver="${{ needs.version.outputs.version }}"
+          tar czf "autocutsel-${ver}.tar.gz" \
+            --transform "s,^,autocutsel-${ver}/," \
             --exclude=.git *
 
       - name: Build package

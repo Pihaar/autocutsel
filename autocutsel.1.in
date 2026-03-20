@@ -1,4 +1,4 @@
-.TH AUTOCUTSEL 1 "March 2026" "autocutsel 0.11.0" "General Commands Manual"
+.TH AUTOCUTSEL 1 "March 2026" "autocutsel @PACKAGE_VERSION@" "General Commands Manual"
 .SH NAME
 autocutsel \- keep the X clipboard and the cutbuffer in sync
 .SH SYNOPSIS

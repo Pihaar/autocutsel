@@ -58,5 +58,5 @@ else
   AC_MSG_RESULT(no)
 fi
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile autocutsel.1])
 AC_OUTPUT
