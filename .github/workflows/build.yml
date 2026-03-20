@@ -64,7 +64,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   build-opensuse:
     name: Build (openSUSE)
@@ -90,7 +90,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   build-ubuntu:
     name: Build (Ubuntu)
@@ -117,7 +117,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   build-debian:
     name: Build (Debian)
@@ -144,7 +144,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   build-archlinux:
     name: Build (Arch Linux)
@@ -170,7 +170,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   sanitizers:
     name: Sanitizers (Fedora)
@@ -196,7 +196,7 @@ jobs:
         run: make
 
       - name: Test
-        run: make check
+        run: make check || { cat test-suite.log; exit 1; }
 
   rpm-fedora:
     name: RPM (Fedora)
