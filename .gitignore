@@ -11,7 +11,7 @@ depcomp
 install-sh
 ltmain.sh
 missing
-m4/
+m4/*.m4
 
 # ./configure output
 Makefile
