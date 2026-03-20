@@ -13,8 +13,10 @@ echo "Binary checks:"
 # Resolve libtool wrapper scripts to real binaries in .libs/
 resolve_binary() {
   _bin="$1"
-  if [ -x "$_bin" ] && file "$_bin" | grep -q "shell script" && [ -x ".libs/$(basename "$_bin")" ]; then
-    echo ".libs/$(basename "$_bin")"
+  _dir=$(dirname "$_bin")
+  _base=$(basename "$_bin")
+  if [ -x "$_dir/.libs/$_base" ]; then
+    echo "$_dir/.libs/$_base"
   else
     echo "$_bin"
   fi
