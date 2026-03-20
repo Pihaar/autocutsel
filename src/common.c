@@ -215,7 +215,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *format = 32;
 
     if (options.debug)
-      printf("Returning %" PRIx32 "\n", *temp);
+      printf("Returning %" PRIx32 "\n", (uint32_t)*temp);
 
     return True;
   }
@@ -229,7 +229,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *format = 32;
 
     if (options.debug)
-      printf("Returning %" PRIx32 "\n", *temp);
+      printf("Returning %" PRIx32 "\n", (uint32_t)*temp);
 
     return True;
   }
