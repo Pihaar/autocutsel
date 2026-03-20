@@ -10,7 +10,11 @@ License:        GPL-2.0-or-later
 URL:            https://github.com/Pihaar/autocutsel
 Source0:        %{name}-%{version}.tar.gz
 
+%if 0%{?suse_version} < 1500
+BuildRequires:  gcc9
+%else
 BuildRequires:  gcc
+%endif
 BuildRequires:  make
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -38,12 +42,18 @@ text editors.
 %autosetup
 
 %build
+%if 0%{?suse_version} < 1500
+export CC=gcc-9
+%endif
 ./bootstrap
 %configure --docdir=%{_docdir}/%{name}
 %make_build
 
 %install
 %make_install
+
+%check
+%make_build check
 
 %files
 %license COPYING
@@ -56,3 +66,5 @@ text editors.
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*
 %{_prefix}/lib/systemd/user/autocutsel@.service
+
+%changelog
