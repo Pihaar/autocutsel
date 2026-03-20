@@ -46,7 +46,9 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in \
 	contrib/systemd/clipboard.args \
 	contrib/systemd/primary.args \
 	contrib/rpm/autocutsel.spec \
+	contrib/obs/autocutsel.spec \
 	contrib/arch/PKGBUILD \
+	.obs/workflows.yml \
 	debian/control \
 	debian/rules \
 	debian/changelog \
