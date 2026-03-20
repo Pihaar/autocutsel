@@ -26,8 +26,12 @@ stamp-h1
 *.lo
 .deps/
 .libs/
+.dirstamp
 autocutsel
 cutsel
+
+# Autotools test harness
+test-driver
 
 # Generated from .in template
 autocutsel.1

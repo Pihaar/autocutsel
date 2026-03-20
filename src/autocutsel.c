@@ -553,7 +553,8 @@ int main(int argc, char* argv[])
         return errno;
       case 0:
         sleep(3); /* Wait for parent to exit */
-        chdir("/");
+        if (chdir("/") < 0)
+          perror("chdir");
         TrapSignals();
         CloseStdFds();
         break;
@@ -643,14 +644,16 @@ int main(int argc, char* argv[])
       if (options.li) {
         if (libinput_udev_assign_seat(options.li, "seat0") == 0) {
           // Create pipe for cross-thread signaling before starting thread
-          if (pipe2(mouse_pipe, O_CLOEXEC) < 0) {
+          if (pipe(mouse_pipe) < 0) {
             fprintf(stderr, "WARNING: could not create mouse pipe\n");
             libinput_unref(options.li);
             options.li = NULL;
             options.mouseonly = 0;
           } else {
-            fcntl(mouse_pipe[0], F_SETFL, O_NONBLOCK);  // non-blocking read end
-            fcntl(mouse_pipe[1], F_SETFL, O_NONBLOCK);  // non-blocking write end
+            fcntl(mouse_pipe[0], F_SETFD, FD_CLOEXEC);   // close on exec
+            fcntl(mouse_pipe[1], F_SETFD, FD_CLOEXEC);   // close on exec
+            fcntl(mouse_pipe[0], F_SETFL, O_NONBLOCK);    // non-blocking read end
+            fcntl(mouse_pipe[1], F_SETFL, O_NONBLOCK);    // non-blocking write end
             // Start dedicated thread for libinput event processing
             pthread_t li_thread;
             if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {

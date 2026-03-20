@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([autocutsel],[0.11.0])
-AC_CONFIG_SRCDIR([autocutsel.c])
-AM_INIT_AUTOMAKE([foreign])
+AC_CONFIG_SRCDIR([src/autocutsel.c])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_CONFIG_MACRO_DIRS([m4])
 

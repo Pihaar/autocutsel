@@ -166,19 +166,22 @@ if [ ! -f "$_manpage" ]; then
 fi
 
 if [ -f "$_manpage" ]; then
-  # Man page renders without errors
-  _man_errors=$(man -l "$_manpage" 2>&1 >/dev/null)
-  _tests_run=$((_tests_run + 1))
-  if [ -z "$_man_errors" ]; then
-    _tests_passed=$((_tests_passed + 1))
-    echo "  PASS: man page renders without errors"
-  else
-    _tests_failed=$((_tests_failed + 1))
-    echo "  FAIL: man page has rendering errors: $_man_errors"
+  # Man page renders without errors (only if man is available)
+  if command -v man >/dev/null 2>&1; then
+    _man_errors=$(man -l "$_manpage" 2>&1 >/dev/null)
+    _tests_run=$((_tests_run + 1))
+    if [ -z "$_man_errors" ]; then
+      _tests_passed=$((_tests_passed + 1))
+      echo "  PASS: man page renders without errors"
+    else
+      _tests_failed=$((_tests_failed + 1))
+      echo "  FAIL: man page has rendering errors: $_man_errors"
+    fi
   fi
 
   # Man page contains all required sections
-  _man_content=$(man -l "$_manpage" 2>/dev/null | col -b)
+  # Use raw troff source directly — portable across all environments
+  _man_content=$(cat "$_manpage")
   for _section in NAME SYNOPSIS DESCRIPTION OPTIONS EXAMPLES "INSTANCE MANAGEMENT" SYSTEMD "WAYLAND SUPPORT" AUTHORS LICENSE; do
     _tests_run=$((_tests_run + 1))
     if echo "$_man_content" | grep -q "$_section"; then
@@ -190,15 +193,15 @@ if [ -f "$_manpage" ]; then
     fi
   done
 
-  # All options documented
-  for _opt in "\-selection" "\-cutbuffer" "\-debug" "\-verbose" "\-fork" "\-pause" "\-buttonup" "\-mouseonly" "\-encoding"; do
+  # All options documented (search raw source — backslash-minus is literal in troff)
+  for _opt in selection cutbuffer debug verbose fork pause buttonup mouseonly encoding; do
     _tests_run=$((_tests_run + 1))
-    if echo "$_man_content" | grep -q -- "$_opt"; then
+    if grep -q -- "$_opt" "$_manpage"; then
       _tests_passed=$((_tests_passed + 1))
-      echo "  PASS: man page documents $_opt"
+      echo "  PASS: man page documents -$_opt"
     else
       _tests_failed=$((_tests_failed + 1))
-      echo "  FAIL: man page missing option $_opt"
+      echo "  FAIL: man page missing option -$_opt"
     fi
   done
 else

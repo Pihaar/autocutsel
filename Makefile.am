@@ -2,10 +2,10 @@ ACLOCAL_AMFLAGS = -I m4
 
 bin_PROGRAMS = autocutsel cutsel
 
-autocutsel_SOURCES = autocutsel.c common.c
-cutsel_SOURCES = cutsel.c common.c
+autocutsel_SOURCES = src/autocutsel.c src/common.c
+cutsel_SOURCES = src/cutsel.c src/common.c
 
-noinst_HEADERS = common.h
+noinst_HEADERS = src/common.h
 
 man1_MANS = autocutsel.1
 
@@ -45,7 +45,8 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in \
 	contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \
 	contrib/systemd/primary.args \
-	PKGBUILD \
+	contrib/rpm/autocutsel.spec \
+	contrib/arch/PKGBUILD \
 	debian/control \
 	debian/rules \
 	debian/changelog \

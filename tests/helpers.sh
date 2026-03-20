@@ -17,7 +17,7 @@ CUTSEL="${CUTSEL:-../cutsel}"
 
 # Ensure X display is available (start Xvfb if needed)
 ensure_display() {
-  if [ -n "$DISPLAY" ]; then
+  if [ -n "${DISPLAY:-}" ]; then
     return 0
   fi
   if command -v Xvfb >/dev/null 2>&1; then

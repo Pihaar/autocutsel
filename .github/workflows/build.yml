@@ -34,8 +34,8 @@ jobs:
               echo "OK: $1 = $2"
             fi
           }
-          check "autocutsel.spec" "$(sed -n 's/^Version:[[:space:]]*//p' autocutsel.spec)"
-          check "PKGBUILD" "$(sed -n 's/^pkgver=//p' PKGBUILD)"
+          check "autocutsel.spec" "$(sed -n 's/^Version:[[:space:]]*//p' contrib/rpm/autocutsel.spec)"
+          check "PKGBUILD" "$(sed -n 's/^pkgver=//p' contrib/arch/PKGBUILD)"
           check "debian/changelog" "$(head -1 debian/changelog | sed 's/.*(\(.*\)-.*/\1/')"
           exit $fail
 
@@ -181,7 +181,7 @@ jobs:
             --exclude=.git *
 
       - name: Build RPM
-        run: rpmbuild -ba autocutsel.spec
+        run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
         uses: actions/upload-artifact@v5
@@ -214,7 +214,7 @@ jobs:
             --exclude=.git *
 
       - name: Build RPM
-        run: rpmbuild -ba autocutsel.spec
+        run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
         uses: actions/upload-artifact@v5
