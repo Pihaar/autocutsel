@@ -48,9 +48,9 @@ editors like VSCode.
 %files
 %license COPYING
 %doc README AUTHORS ChangeLog TODO
-%{_docdir}/autocutsel/examples/mouseonly.args
-%{_docdir}/autocutsel/examples/clipboard.args
-%{_docdir}/autocutsel/examples/primary.args
+%{_datadir}/doc/autocutsel/examples/mouseonly.args
+%{_datadir}/doc/autocutsel/examples/clipboard.args
+%{_datadir}/doc/autocutsel/examples/primary.args
 %{_bindir}/autocutsel
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*

@@ -8,7 +8,7 @@ url='https://github.com/Pihaar/autocutsel'
 license=('GPL-2.0-or-later')
 depends=('libx11' 'libxt' 'libxmu' 'libxaw' 'libxext' 'libinput' 'systemd-libs')
 makedepends=('autoconf' 'automake' 'libtool' 'pkg-config')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {

@@ -26,6 +26,5 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog INSTALL README TODO test_autocutsel.rb au
 	debian/control \
 	debian/rules \
 	debian/changelog \
-	debian/compat \
 	debian/source/format \
 	debian/autocutsel.install
