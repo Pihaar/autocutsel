@@ -208,11 +208,14 @@ jobs:
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
 
+      - name: Collect DEB
+        run: cp ../*.deb .
+
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: deb-ubuntu
-          path: ../*.deb
+          path: '*.deb'
 
   deb-debian:
     name: DEB (Debian)
@@ -234,11 +237,14 @@ jobs:
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
 
+      - name: Collect DEB
+        run: cp ../*.deb .
+
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: deb-debian
-          path: ../*.deb
+          path: '*.deb'
 
   pkg-archlinux:
     name: PKG (Arch Linux)
@@ -262,7 +268,7 @@ jobs:
 
       - name: Create source tarball
         run: |
-          tar czf "autocutsel-$pkgver.tar.gz" \
+          tar czf autocutsel-0.11.0.tar.gz \
             --transform 's,^,autocutsel-0.11.0/,' \
             --exclude=.git *
 
