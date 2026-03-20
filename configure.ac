@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([autocutsel],[0.11.0])
 AC_CONFIG_SRCDIR([autocutsel.c])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_MACRO_DIRS([m4])
 
@@ -37,12 +37,12 @@ AC_CHECK_LIB(Xmu, XmuGetHostname,
 PKG_CHECK_MODULES([LIBINPUT], [libinput],
   [CFLAGS="$CFLAGS $LIBINPUT_CFLAGS"
    LIBS="$LIBS $LIBINPUT_LIBS"],
-  AC_MSG_WARN(Unable to find libinput - mouseonly mode disabled))
+  AC_MSG_ERROR(Unable to find libinput))
 
 PKG_CHECK_MODULES([LIBUDEV], [libudev],
   [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"
    LIBS="$LIBS $LIBUDEV_LIBS"],
-  AC_MSG_WARN(Unable to find libudev - mouseonly mode disabled))
+  AC_MSG_ERROR(Unable to find libudev))
 
 LIBS="$LIBS -lpthread"
 
@@ -53,7 +53,7 @@ dnl Warnings
 AC_MSG_CHECKING([whether to enable -Wall])
 if test -n "$GCC"; then
   AC_MSG_RESULT(adding -Wall to CFLAGS.)
-  CFLAGS="$CFLAGS -Wall"
+  CFLAGS="$CFLAGS -Wall -Wno-unused-parameter"
 else
   AC_MSG_RESULT(no)
 fi

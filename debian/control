@@ -1,7 +1,7 @@
 Source: autocutsel
 Section: x11
 Priority: optional
-Maintainer: Patrick Haar <patrick@haar-family.de>
+Maintainer: Patrick Haar <Pihaar@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13),
                autoconf,
                automake,
@@ -28,4 +28,4 @@ Description: Keep the X clipboard and the cutbuffer in sync
  This fork adds the -mouseonly option which synchronizes PRIMARY to
  CLIPBOARD only when text is selected with the mouse. Keyboard-based
  selections (e.g. Shift+Arrow) are ignored, preventing accidental
- clipboard overwrites in editors like VSCode.
+ clipboard overwrites in text editors.

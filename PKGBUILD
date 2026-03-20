@@ -1,4 +1,4 @@
-# Maintainer: Patrick Haar <patrick@haar-family.de>
+# Maintainer: Patrick Haar <Pihaar@users.noreply.github.com>
 pkgname=autocutsel
 pkgver=0.11.0
 pkgrel=1

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * This program is distributed under the terms
  * of the GNU General Public License (read the COPYING file)
@@ -32,13 +32,13 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Shell.h>
-#include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xaw/Box.h>
 #include <X11/Xaw/Cardinals.h>
 #include <X11/Xmd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
@@ -51,8 +51,14 @@
 #include <libinput.h>
 #include <libudev.h>
 #include <linux/input-event-codes.h>
+#include <iconv.h>
 
 
+/*
+ * Thread safety: The libinput thread only accesses mouse_grace_ticks (via
+ * atomics). All other fields (value, length, etc.) are only accessed from the
+ * Xt main loop thread, so no additional synchronization is needed.
+ */
 typedef struct {
   String  selection_name;
   int     buffer;
@@ -73,19 +79,26 @@ typedef struct {
   int     mouseonly;
   atomic_int mouse_grace_ticks;
   struct libinput *li;
-  Atom    clipboard;
-  int     own_clipboard;
+  Atom    target;
+  int     own_target;
+  int     wayland;
+  String  encoding;
 } OptionsRec;
 
 extern Widget box;
 extern Display* dpy;
 extern XtAppContext context;
-extern Atom selection;
+extern Atom sel_atom;
 extern int buffer;
 extern OptionsRec options;
 
+// client_data flags for UTF8_STRING / XA_STRING fallback
+#define SEL_TRY_UTF8     ((XtPointer)(long)0)
+#define SEL_FALLBACK_STR ((XtPointer)(long)1)
 
 void PrintValue(char *value, int length);
+char *ConvertEncoding(const char *from_enc, const char *to_enc,
+                      const char *input, int in_len, int *out_len);
 Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
                                 Atom *type, XtPointer *value,
                                 unsigned long *length, int *format);

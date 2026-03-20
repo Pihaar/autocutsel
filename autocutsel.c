@@ -5,7 +5,7 @@
  *
  * Most code taken from:
  * * clear-cut-buffers.c by "E. Jay Berkenbilt" <ejb @ ql . org>
- *   in this messages:
+ *   in these messages:
  *     http://boudicca.tux.org/mhonarc/ma-linux/2001-Feb/msg00824.html
  *
  * * xcutsel.c by Ralph Swick, DEC/Project Athena
@@ -23,7 +23,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * This program is distributed under the terms
  * of the GNU General Public License (read the COPYING file)
@@ -49,14 +49,31 @@ static const struct libinput_interface li_interface = {
   .close_restricted = close_restricted,
 };
 
+static _Atomic(int) li_thread_running = 1;
+static pthread_t li_thread_id;
+static Atom utf8_atom;
+static int mouse_pipe[2] = {-1, -1};
+
+// Check pipe for mouse release signal from libinput thread (non-blocking)
+static int drain_mouse_pipe(void)
+{
+  if (mouse_pipe[0] < 0)
+    return 0;
+  char buf;
+  int got = 0;
+  while (read(mouse_pipe[0], &buf, 1) > 0)
+    got = 1;
+  return got;
+}
+
 // Dedicated thread for libinput event processing
 static void *libinput_thread(void *arg)
 {
   struct libinput *li = (struct libinput *)arg;
   struct pollfd pfd = { .fd = libinput_get_fd(li), .events = POLLIN };
 
-  while (1) {
-    if (poll(&pfd, 1, -1) < 0)
+  while (atomic_load(&li_thread_running)) {
+    if (poll(&pfd, 1, 500) < 0)
       continue;
     libinput_dispatch(li);
     struct libinput_event *ev;
@@ -65,8 +82,11 @@ static void *libinput_thread(void *arg)
         struct libinput_event_pointer *pev = libinput_event_get_pointer_event(ev);
         if (libinput_event_pointer_get_button(pev) == BTN_LEFT &&
             libinput_event_pointer_get_button_state(pev) == LIBINPUT_BUTTON_STATE_RELEASED) {
-          // Atomic store - safe cross-thread communication
-          atomic_store(&options.mouse_grace_ticks, 5);
+          // Signal the Xt main loop via pipe for immediate processing
+          if (mouse_pipe[1] >= 0) {
+            char c = 'r';
+            (void)write(mouse_pipe[1], &c, 1);
+          }
         }
       }
       libinput_event_destroy(ev);
@@ -93,6 +113,8 @@ static XrmOptionDescRec optionDesc[] = {
   {"-p",         "pause",     XrmoptionSepArg, NULL},
   {"-buttonup",  "buttonup",  XrmoptionNoArg,  "on"},
   {"-mouseonly", "mouseonly", XrmoptionNoArg,  "on"},
+  {"-encoding",  "encoding",  XrmoptionSepArg, NULL},
+  {"-e",         "encoding",  XrmoptionSepArg, NULL},
 };
 
 int Syntax(char *call)
@@ -100,7 +122,7 @@ int Syntax(char *call)
   fprintf (stderr,
     "usage:  %s [-selection <name>] [-cutbuffer <number>]"
     " [-pause <milliseconds>] [-debug] [-verbose] [-fork] [-buttonup]"
-    " [-mouseonly]\n",
+    " [-mouseonly] [-encoding <charset>]\n",
     call);
   exit (1);
 }
@@ -124,6 +146,8 @@ static XtResource resources[] = {
     Offset(buttonup_option), XtRString, "off"},
   {"mouseonly", "MouseOnly", XtRString, sizeof(String),
     Offset(mouseonly_option), XtRString, "off"},
+  {"encoding", "Encoding", XtRString, sizeof(String),
+    Offset(encoding), XtRString, NULL},
 };
 
 #undef Offset
@@ -143,29 +167,33 @@ static void CloseStdFds()
 static void CleanupLibinput(void)
 {
   if (options.li) {
+    atomic_store(&li_thread_running, 0);
+    if (li_thread_id)
+      pthread_join(li_thread_id, NULL);
     libinput_unref(options.li);
     options.li = NULL;
+    if (mouse_pipe[0] >= 0) { close(mouse_pipe[0]); mouse_pipe[0] = -1; }
+    if (mouse_pipe[1] >= 0) { close(mouse_pipe[1]); mouse_pipe[1] = -1; }
   }
 }
 
 static void Terminate(int caught)
 {
+  (void)caught;
+  atomic_store(&li_thread_running, 0);
   _exit(0);
 }
 
 static void TrapSignals()
 {
-  int catch;
   struct sigaction action;
-
   sigemptyset (&action.sa_mask);
   action.sa_flags = 0;
-  for (catch = 1; catch < NSIG; catch++) {
-    if (catch != SIGKILL && catch != SIGSTOP) {
-      action.sa_handler = Terminate;
-      sigaction (catch, &action, (struct sigaction *) 0);
-    }
-  }
+  action.sa_handler = Terminate;
+
+  sigaction(SIGTERM, &action, NULL);
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGHUP, &action, NULL);
 }
 
 // Called when we no longer own the selection
@@ -176,12 +204,12 @@ static void LoseSelection(Widget w, Atom *selection)
   options.own_selection = 0;
 }
 
-// Called when we lose CLIPBOARD ownership (mouseonly mode)
-static void LoseClipboard(Widget w, Atom *selection)
+// Called when we lose target selection ownership (mouseonly/Wayland mode)
+static void LoseTarget(Widget w, Atom *selection)
 {
   if (options.debug)
-    printf("Clipboard ownership lost\n");
-  options.own_clipboard = 0;
+    printf("Target selection ownership lost\n");
+  options.own_target = 0;
 }
 
 // Returns true if value (or length) is different
@@ -190,7 +218,7 @@ static int ValueDiffers(char *value, int length)
 {
   return (!options.value ||
     length != options.length ||
-    memcmp(options.value, value, options.length));
+    memcmp(options.value, value, length));
 }
 
 // Update the current value
@@ -224,9 +252,21 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
 {
   int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
 
+  if ((*type == 0 || *type == XT_CONVERT_FAIL) && client_data == SEL_TRY_UTF8) {
+    // UTF8_STRING not supported, retry with XA_STRING before owning
+    if (options.debug)
+      printf("OwnSelectionIfDiffers: UTF8_STRING failed, retrying with XA_STRING\n");
+    XtFree(value);
+    XtGetSelectionValue(w, *selection, XA_STRING,
+      OwnSelectionIfDiffers, SEL_FALLBACK_STR,
+      CurrentTime);
+    return;
+  }
+
   if (*type == 0 ||
       *type == XT_CONVERT_FAIL ||
       length == 0 ||
+      !value ||
       ValueDiffers(value, length)) {
     if (options.debug)
       printf("Selection is out of date. Owning it\n");
@@ -267,15 +307,15 @@ static void CheckBuffer()
     }
 
     ChangeValue(value, length);
-    XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
-      OwnSelectionIfDiffers, NULL,
+    XtGetSelectionValue(box, sel_atom, utf8_atom,
+      OwnSelectionIfDiffers, SEL_TRY_UTF8,
       CurrentTime);
   }
 
   XFree(value);
 }
 
-// Called when the requested selection value is availiable
+// Called when the requested selection value is available
 static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
                               Atom *type, XtPointer value,
                               unsigned long *received_length, int *format)
@@ -299,35 +339,56 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
   }
 
   if (*type != 0 && *type != XT_CONVERT_FAIL) {
-    if (length > 0 && ValueDiffers(value, length)) {
+    // In mouseonly mode, a valid response means we captured the selection
+    // (whether changed or not). Stop further grace reads to avoid catching
+    // subsequent keyboard selections.
+    if (options.mouseonly)
+      atomic_store(&options.mouse_grace_ticks, 0);
+
+    char *store_value = (char*)value;
+    int store_length = length;
+    char *conv = NULL;
+
+    // If -encoding is set, convert received UTF-8 to VNC encoding for storage
+    if (options.encoding && length > 0) {
+      int conv_len;
+      conv = ConvertEncoding("UTF-8", options.encoding,
+                             (char*)value, length, &conv_len);
+      if (conv) {
+        store_value = conv;
+        store_length = conv_len;
+      }
+    }
+
+    if (store_length > 0 && ValueDiffers(store_value, store_length)) {
       if (options.debug) {
         printf("Selection changed: ");
-        PrintValue((char*)value, length);
+        PrintValue(store_value, store_length);
         printf("\n");
       }
 
-      ChangeValue((char*)value, length);
+      ChangeValue(store_value, store_length);
       if (options.verbose) {
         printf("sel -> cut: ");
         PrintValue(options.value, options.length);
         printf("\n");
       }
 
-      if (options.mouseonly) {
-        // Directly own CLIPBOARD - force XWayland to notice the change
+      if (options.mouseonly || options.wayland) {
+        // Directly own target selection - force XWayland to notice the change
         // by disowning first, then re-claiming ownership
         if (options.debug)
-          printf("Owning CLIPBOARD directly\n");
-        if (options.own_clipboard) {
+          printf("Owning target selection directly\n");
+        if (options.own_target) {
           // Disown first to force a new SelectionNotify to XWayland
-          XtDisownSelection(box, options.clipboard, CurrentTime);
-          options.own_clipboard = 0;
+          XtDisownSelection(box, options.target, CurrentTime);
+          options.own_target = 0;
         }
-        if (XtOwnSelection(box, options.clipboard, CurrentTime,
-            ConvertSelection, LoseClipboard, NULL) == True) {
-          options.own_clipboard = 1;
+        if (XtOwnSelection(box, options.target, CurrentTime,
+            ConvertSelection, LoseTarget, NULL) == True) {
+          options.own_target = 1;
         } else {
-          printf("WARNING: Unable to own CLIPBOARD!\n");
+          printf("WARNING: Unable to own target selection!\n");
         }
       } else {
         if (options.debug)
@@ -339,31 +400,49 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
       }
 
       XtFree(value);
+      if (conv) XtFree(conv);
       return;
     }
+    if (conv) XtFree(conv);
+  } else if (client_data == SEL_TRY_UTF8) {
+    // UTF8_STRING not supported by selection owner, fall back to XA_STRING
+    if (options.debug)
+      printf("UTF8_STRING failed, retrying with XA_STRING\n");
+    XtFree(value);
+    XtGetSelectionValue(w, *selection, XA_STRING,
+      SelectionReceived, SEL_FALLBACK_STR,
+      CurrentTime);
+    return;
   }
   XtFree(value);
 
   // Unless a new selection value is found, check the buffer value
-  // (skip in mouseonly mode - we never want to own the selection)
-  if (!options.mouseonly)
+  // (skip in mouseonly/Wayland modes - we use direct selection sync)
+  if (!options.mouseonly && !options.wayland)
     CheckBuffer();
 }
 
-// Called each <pause arg=500> milliseconds
 void timeout(XtPointer p, XtIntervalId* i)
 {
-  if (options.own_selection)
+  if (options.own_selection && !options.wayland)
     CheckBuffer();
   else if (options.mouseonly) {
-    // mouseonly: only read selection on mouse release, never CheckBuffer
-    if (atomic_load(&options.mouse_grace_ticks) > 0) {
+    // mouseonly: check pipe for mouse button release signal from libinput thread
+    if (drain_mouse_pipe()) {
+      if (options.debug)
+        printf("mouseonly: mouse release detected, reading selection\n");
+      atomic_store(&options.mouse_grace_ticks, 1);
+      XtGetSelectionValue(box, sel_atom, utf8_atom,
+        SelectionReceived, SEL_TRY_UTF8,
+        CurrentTime);
+    } else if (atomic_load(&options.mouse_grace_ticks) > 0) {
+      // Previous pipe-triggered read failed; retry once
       atomic_fetch_sub(&options.mouse_grace_ticks, 1);
       if (options.debug)
-        printf("mouseonly: grace tick, reading selection (%d remaining)\n",
+        printf("mouseonly: retry read (%d remaining)\n",
                atomic_load(&options.mouse_grace_ticks));
-      XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
-        SelectionReceived, NULL,
+      XtGetSelectionValue(box, sel_atom, utf8_atom,
+        SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
     }
   } else {
@@ -381,16 +460,32 @@ void timeout(XtPointer p, XtIntervalId* i)
     }
 
     if (get_value)
-      XtGetSelectionValue(box, selection, XInternAtom(dpy, "UTF8_STRING", False),
-        SelectionReceived, NULL,
+      XtGetSelectionValue(box, sel_atom, utf8_atom,
+        SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
   }
 
-  XtAppAddTimeOut(context, options.pause, timeout, 0);
+  // mouseonly uses a shorter interval since it only checks a local pipe
+  unsigned long interval = options.mouseonly ? 50 : options.pause;
+  XtAppAddTimeOut(context, interval, timeout, 0);
 }
 
 int main(int argc, char* argv[])
 {
+  // Pre-scan for --help/--version before Xt opens the X connection
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-help") == 0) {
+      printf("usage:  %s [-selection <name>] [-cutbuffer <number>]"
+        " [-pause <milliseconds>] [-debug] [-verbose] [-fork] [-buttonup]"
+        " [-mouseonly] [-encoding <charset>]\n", argv[0]);
+      return 0;
+    }
+    if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-version") == 0) {
+      printf("autocutsel v%s\n", VERSION);
+      return 0;
+    }
+  }
+
   Widget top;
   top = XtVaAppInitialize(&context, "AutoCutSel",
         optionDesc, XtNumber(optionDesc), &argc, argv, NULL,
@@ -403,7 +498,6 @@ int main(int argc, char* argv[])
   XtGetApplicationResources(top, (XtPointer)&options,
           resources, XtNumber(resources),
           NULL, ZERO );
-
 
   if (strcmp(options.debug_option, "on") == 0)
     options.debug = 1;
@@ -418,6 +512,9 @@ int main(int argc, char* argv[])
   if (options.debug || options.verbose)
     printf("autocutsel v%s\n", VERSION);
 
+  if (options.encoding && options.debug)
+    printf("Encoding conversion: %s <-> UTF-8\n", options.encoding);
+
   if (strcmp(options.buttonup_option, "on") == 0)
     options.buttonup = 1;
   else
@@ -427,6 +524,11 @@ int main(int argc, char* argv[])
     options.mouseonly = 1;
   else
     options.mouseonly = 0;
+
+  // Auto-detect Wayland session (cutbuffer does not work under XWayland)
+  options.wayland = (getenv("WAYLAND_DISPLAY") != NULL) ? 1 : 0;
+  if (options.wayland && (options.debug || options.verbose))
+    printf("Wayland detected, using direct selection sync (no cutbuffer)\n");
 
   atomic_init(&options.mouse_grace_ticks, 0);
 
@@ -450,7 +552,7 @@ int main(int argc, char* argv[])
         fprintf (stderr, "could not fork, exiting\n");
         return errno;
       case 0:
-        sleep(3); /* Wait for father to exit */
+        sleep(3); /* Wait for parent to exit */
         chdir("/");
         TrapSignals();
         CloseStdFds();
@@ -465,19 +567,49 @@ int main(int argc, char* argv[])
   options.length = 0;
 
   options.own_selection = 0;
-  options.own_clipboard = 0;
+  options.own_target = 0;
 
   box = XtCreateManagedWidget("box", boxWidgetClass, top, NULL, 0);
   dpy = XtDisplay(top);
+  utf8_atom = XInternAtom(dpy, "UTF8_STRING", False);
 
-  selection = XInternAtom(dpy, options.selection_name, 0);
-  options.selection = selection;
-  options.clipboard = XInternAtom(dpy, "CLIPBOARD", 0);
+  sel_atom = XInternAtom(dpy, options.selection_name, 0);
+  if (sel_atom == None) {
+    fprintf(stderr, "autocutsel: could not intern atom for selection %s\n",
+            options.selection_name);
+    return 1;
+  }
+  options.selection = sel_atom;
+  options.target = XInternAtom(dpy, "CLIPBOARD", 0);
+  if (options.target == None) {
+    fprintf(stderr, "autocutsel: could not intern CLIPBOARD atom\n");
+    return 1;
+  }
+
+  // On Wayland without mouseonly: if monitoring CLIPBOARD, sync to PRIMARY
+  if (options.wayland && !options.mouseonly && sel_atom == options.target) {
+    options.target = XInternAtom(dpy, "PRIMARY", 0);
+    if (options.target == None) {
+      fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
+      return 1;
+    }
+  }
+
+  if (options.debug && (options.mouseonly || options.wayland)) {
+    char *target_name = XGetAtomName(dpy, options.target);
+    printf("Target selection: %s\n", target_name);
+    XFree(target_name);
+  }
+
   buffer = 0;
 
-  options.value = XFetchBuffer(dpy, &options.length, buffer);
+  if (!options.wayland)
+    options.value = XFetchBuffer(dpy, &options.length, buffer);
 
-  XtAppAddTimeOut(context, options.pause, timeout, 0);
+  {
+    unsigned long interval = options.mouseonly ? 50 : options.pause;
+    XtAppAddTimeOut(context, interval, timeout, 0);
+  }
   XtRealizeWidget(top);
   XUnmapWindow(XtDisplay(top), XtWindow(top));
 
@@ -510,17 +642,29 @@ int main(int argc, char* argv[])
       options.li = libinput_udev_create_context(&li_interface, NULL, udev);
       if (options.li) {
         if (libinput_udev_assign_seat(options.li, "seat0") == 0) {
-          // Start dedicated thread for libinput event processing
-          pthread_t li_thread;
-          if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {
-            pthread_detach(li_thread);
-            if (options.debug)
-              printf("libinput mouseonly mode enabled (threaded)\n");
-          } else {
-            fprintf(stderr, "WARNING: could not create libinput thread\n");
+          // Create pipe for cross-thread signaling before starting thread
+          if (pipe2(mouse_pipe, O_CLOEXEC) < 0) {
+            fprintf(stderr, "WARNING: could not create mouse pipe\n");
             libinput_unref(options.li);
             options.li = NULL;
             options.mouseonly = 0;
+          } else {
+            fcntl(mouse_pipe[0], F_SETFL, O_NONBLOCK);  // non-blocking read end
+            fcntl(mouse_pipe[1], F_SETFL, O_NONBLOCK);  // non-blocking write end
+            // Start dedicated thread for libinput event processing
+            pthread_t li_thread;
+            if (pthread_create(&li_thread, NULL, libinput_thread, options.li) == 0) {
+              li_thread_id = li_thread;
+              if (options.debug)
+                printf("libinput mouseonly mode enabled (threaded)\n");
+            } else {
+              fprintf(stderr, "WARNING: could not create libinput thread\n");
+              close(mouse_pipe[0]); close(mouse_pipe[1]);
+              mouse_pipe[0] = mouse_pipe[1] = -1;
+              libinput_unref(options.li);
+              options.li = NULL;
+              options.mouseonly = 0;
+            }
           }
         } else {
           fprintf(stderr, "WARNING: libinput could not assign seat, -mouseonly will not work\n");

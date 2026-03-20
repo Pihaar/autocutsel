@@ -1,3 +1,4 @@
+# Autotools bootstrap output
 Makefile.in
 aclocal.m4
 autom4te.cache/
@@ -7,19 +8,32 @@ config.h.in
 config.sub
 configure
 depcomp
+install-sh
 ltmain.sh
-.deps/
+missing
+m4/
+
+# ./configure output
 Makefile
 config.h
 config.log
 config.status
 libtool
 stamp-h1
+
+# Build output
+*.o
+*.lo
+.deps/
+.libs/
 autocutsel
 cutsel
-*.o
-*.tar.gz
-install-sh
-missing
-m4/
+
+# Generated from .in template
 autocutsel.1
+
+# Packaging artifacts
+*.tar.gz
+*.rpm
+*.deb
+*.pkg.tar.zst

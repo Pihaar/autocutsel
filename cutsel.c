@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * This program is distributed under the terms
  * of the GNU General Public License (read the COPYING file)
@@ -102,7 +102,7 @@ static void TargetsReceived(Widget w, XtPointer client_data, Atom *selection,
                            unsigned long *length, int *format)
 {
   Display* d = XtDisplay(w);
-  int i;
+  unsigned long i;
   Atom *atoms;
 
   if (*type == 0)
@@ -158,7 +158,7 @@ void OwnSelection(XtPointer p, XtIntervalId* i)
 
 void GetSelection(XtPointer p, XtIntervalId* i)
 {
-  XtGetSelectionValue(box, selection, XA_STRING,
+  XtGetSelectionValue(box, sel_atom, XA_STRING,
     PrintSelection, NULL,
     CurrentTime);
 }
@@ -166,17 +166,17 @@ void GetSelection(XtPointer p, XtIntervalId* i)
 void GetTargets(XtPointer p, XtIntervalId* i)
 {
   Display* d = XtDisplay(box);
-    XtGetSelectionValue(box, selection, XA_TARGETS(d),
-      TargetsReceived, NULL,
-      CurrentTime);
+  XtGetSelectionValue(box, sel_atom, XA_TARGETS(d),
+    TargetsReceived, NULL,
+    CurrentTime);
 }
 
 void GetLength(XtPointer p, XtIntervalId* i)
 {
   Display* d = XtDisplay(box);
-    XtGetSelectionValue(box, selection, XA_LENGTH(d),
-      LengthReceived, NULL,
-      CurrentTime);
+  XtGetSelectionValue(box, sel_atom, XA_LENGTH(d),
+    LengthReceived, NULL,
+    CurrentTime);
 }
 
 void Exit(XtPointer p, XtIntervalId* i)
@@ -186,6 +186,23 @@ void Exit(XtPointer p, XtIntervalId* i)
 
 int main(int argc, char* argv[])
 {
+  // Pre-scan for --help/--version before Xt opens the X connection
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-help") == 0) {
+      printf("usage:  %s [-selection <name>] [-cutbuffer <number>]"
+        " [-debug] [-verbose] cut|sel [<value>]\n", argv[0]);
+      printf("        %s [-selection <name>] [-cutbuffer <number>]"
+        " [-debug] [-verbose] targets\n", argv[0]);
+      printf("        %s [-selection <name>] [-cutbuffer <number>]"
+        " [-debug] [-verbose] length\n", argv[0]);
+      return 0;
+    }
+    if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-version") == 0) {
+      printf("cutsel v%s\n", VERSION);
+      return 0;
+    }
+  }
+
   Widget top;
   top = XtVaAppInitialize(&context, "CutSel",
         optionDesc, XtNumber(optionDesc), &argc, argv, NULL,
@@ -198,7 +215,6 @@ int main(int argc, char* argv[])
   XtGetApplicationResources(top, (XtPointer)&options,
     resources, XtNumber(resources),
     NULL, ZERO );
-
 
   if (strcmp(options.debug_option, "on") == 0)
     options.debug = 1;
@@ -219,8 +235,13 @@ int main(int argc, char* argv[])
   box = XtCreateManagedWidget("box", boxWidgetClass, top, NULL, 0);
   dpy = XtDisplay(top);
 
-  selection = XInternAtom(dpy, options.selection_name, 0);
-  options.selection = selection;
+  sel_atom = XInternAtom(dpy, options.selection_name, 0);
+  if (sel_atom == None) {
+    fprintf(stderr, "cutsel: could not intern atom for selection %s\n",
+            options.selection_name);
+    return 1;
+  }
+  options.selection = sel_atom;
   buffer = 0;
 
   if (strcmp(argv[1], "cut") == 0) {

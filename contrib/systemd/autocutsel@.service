@@ -21,7 +21,6 @@ RestartSec=3
 PrivateUsers=true
 ProtectHome=read-only
 ProtectSystem=strict
-PrivateDevices=true
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -37,10 +36,15 @@ RestrictNamespaces=true
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 SystemCallFilter=@system-service
 
+# Device access: cgroup-based filtering allows input devices for -mouseonly
+# mode while blocking everything else.  This is more reliable than
+# PrivateDevices=true + BindPaths=/dev/input (which depends on mount
+# namespace ordering).
+DevicePolicy=closed
+DeviceAllow=char-input r
+
 # X11 display socket must remain accessible
 BindReadOnlyPaths=/tmp/.X11-unix/
-# Input devices for -mouseonly mode (libinput)
-BindPaths=/dev/input
 
 [Install]
 WantedBy=graphical-session.target

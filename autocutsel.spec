@@ -32,7 +32,7 @@ keeping them synchronized.
 This fork adds the -mouseonly option which synchronizes PRIMARY to CLIPBOARD
 only when text is selected with the mouse. Keyboard-based selections (e.g.
 Shift+Arrow) are ignored, preventing accidental clipboard overwrites in
-editors like VSCode.
+text editors.
 
 %prep
 %autosetup
@@ -47,10 +47,11 @@ editors like VSCode.
 
 %files
 %license COPYING
-%doc README AUTHORS ChangeLog TODO
-%{_datadir}/doc/autocutsel/examples/mouseonly.args
-%{_datadir}/doc/autocutsel/examples/clipboard.args
-%{_datadir}/doc/autocutsel/examples/primary.args
+%doc README AUTHORS ChangeLog
+%dir %{_docdir}/%{name}/examples
+%{_docdir}/%{name}/examples/mouseonly.args
+%{_docdir}/%{name}/examples/clipboard.args
+%{_docdir}/%{name}/examples/primary.args
 %{_bindir}/autocutsel
 %{_bindir}/cutsel
 %{_mandir}/man1/autocutsel.1*

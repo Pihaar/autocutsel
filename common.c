@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * This program is distributed under the terms
  * of the GNU General Public License (read the COPYING file)
@@ -27,7 +27,7 @@
 Widget box;
 Display* dpy;
 XtAppContext context;
-Atom selection;
+Atom sel_atom;
 int buffer;
 OptionsRec options;
 
@@ -66,6 +66,54 @@ void PrintValue(char *value, int length)
 
 
 
+// Convert between encodings using iconv.
+// Returns a newly XtMalloc'd buffer (caller must XtFree) and sets *out_len.
+// Returns NULL on failure.
+char *ConvertEncoding(const char *from_enc, const char *to_enc,
+                      const char *input, int in_len, int *out_len)
+{
+  iconv_t cd = iconv_open(to_enc, from_enc);
+  if (cd == (iconv_t)-1) {
+    if (options.debug)
+      printf("iconv_open(%s, %s) failed: %s\n", to_enc, from_enc, strerror(errno));
+    return NULL;
+  }
+
+  if (in_len <= 0) { iconv_close(cd); return NULL; }
+
+  // Guard against integer overflow: in_len * 4 + 4
+  if ((size_t)in_len > (SIZE_MAX - 4) / 4) { iconv_close(cd); return NULL; }
+  size_t out_alloc = (size_t)in_len * 4 + 4;
+  char *out_buf = XtMalloc(out_alloc);
+  if (!out_buf) {
+    iconv_close(cd);
+    return NULL;
+  }
+
+  char *in_ptr = (char *)input;
+  size_t in_left = (size_t)in_len;
+  char *out_ptr = out_buf;
+  size_t out_left = out_alloc;
+
+  size_t ret = iconv(cd, &in_ptr, &in_left, &out_ptr, &out_left);
+  iconv_close(cd);
+
+  if (ret == (size_t)-1 || in_left > 0) {
+    if (options.debug) {
+      if (ret == (size_t)-1)
+        printf("iconv conversion failed: %s\n", strerror(errno));
+      else
+        printf("iconv conversion incomplete: %zu bytes unconverted\n", in_left);
+    }
+    XtFree(out_buf);
+    return NULL;
+  }
+
+  *out_len = (int)(out_alloc - out_left);
+  return out_buf;
+}
+
+
 // called when someone requests the selection value
 Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
                                 Atom *type, XtPointer *value,
@@ -89,7 +137,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     Atom *targetP, *atoms;
     XPointer std_targets;
     unsigned long std_length;
-    int i;
+    unsigned long i;
 
     XmuConvertStandardSelection(w, req->time, selection, target, type,
         &std_targets, &std_length, format);
@@ -122,9 +170,29 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
 
   if (*target == utf8_string || *target == XA_STRING || *target == XA_TEXT(d)) {
     *type = *target;
-    *value = XtMalloc((Cardinal) options.length);
-    memmove((char *)*value, options.value, options.length);
-    *length = options.length;
+
+    if (options.length <= 0 || !options.value) {
+      *value = XtMalloc(1);
+      *length = 0;
+    } else {
+      char *conv = NULL;
+      if (options.encoding && *target == utf8_string) {
+        // If -encoding is set and UTF8_STRING is requested, convert stored value
+        // from the VNC encoding to UTF-8
+        int conv_len;
+        conv = ConvertEncoding(options.encoding, "UTF-8",
+                               options.value, options.length, &conv_len);
+        if (conv) {
+          *value = (XtPointer)conv;
+          *length = conv_len;
+        }
+      }
+      if (!conv) {
+        *value = XtMalloc((Cardinal) options.length);
+        memmove((char *)*value, options.value, options.length);
+        *length = options.length;
+      }
+    }
     *format = 8;
 
     if (options.debug) {

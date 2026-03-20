@@ -1,6 +1,6 @@
 .TH AUTOCUTSEL 1 "March 2026" "autocutsel @PACKAGE_VERSION@" "General Commands Manual"
 .SH NAME
-autocutsel \- keep the X clipboard and the cutbuffer in sync
+autocutsel \- synchronize X selections and the cutbuffer
 .SH SYNOPSIS
 .B autocutsel
 .RB [ \-selection
@@ -14,12 +14,25 @@ autocutsel \- keep the X clipboard and the cutbuffer in sync
 .IR milliseconds ]
 .RB [ \-buttonup ]
 .RB [ \-mouseonly ]
+.RB [ \-encoding
+.IR charset ]
+.RB [ \-\-help ]
+.RB [ \-\-version ]
 .SH DESCRIPTION
 .B autocutsel
 tracks changes in the server's cutbuffer and clipboard selection. When the
 clipboard is changed, it updates the cutbuffer. When the cutbuffer is changed,
 it owns the clipboard selection. The cutbuffer and clipboard selection are
 always synchronized.
+.PP
+On Wayland (detected automatically via
+.BR WAYLAND_DISPLAY ),
+the X11 cutbuffer does not exist. In this case
+.B autocutsel
+synchronizes selections directly: changes in the monitored selection are
+forwarded to the target selection without a cutbuffer intermediary. See
+.B WAYLAND SUPPORT
+below.
 .PP
 This is useful for VNC sessions where Windows VNC clients synchronize the
 Windows clipboard with the cutbuffer but not with the selections.
@@ -29,7 +42,8 @@ Windows clipboard with the cutbuffer but not with the selections.
 Specify which selection to use. Default is CLIPBOARD.
 .TP
 .BR \-cutbuffer ", " \-cut ", " \-c " " \fInumber\fR
-Specify which cutbuffer to use. Default is 0.
+Specify which cutbuffer to use. Default is 0. This option has no effect on
+Wayland, where the cutbuffer is not used.
 .TP
 .BR \-debug ", " \-d
 Print debugging information.
@@ -51,21 +65,21 @@ is requested before the mouse button is released.
 .B \-mouseonly
 Synchronize PRIMARY to CLIPBOARD only when text is selected with the mouse.
 Keyboard-based selections (e.g. Shift+Arrow) are ignored. This prevents
-accidental clipboard overwrites in editors like VSCode where keyboard
+accidental clipboard overwrites in text editors where keyboard
 selection would otherwise replace the clipboard content.
-.PP
+.IP
 Only a single instance is needed \(em unlike the traditional setup which
 requires two instances (one for CLIPBOARD, one for PRIMARY), the
 .B \-mouseonly
 option handles both selections in a single process. Typical usage:
-.PP
+.IP
 .RS
 autocutsel \-selection PRIMARY \-mouseonly
 .RE
-.PP
+.IP
 This option uses libinput to detect mouse button releases and works on both
 X11 and Wayland (via XWayland). It requires libinput and libudev.
-.PP
+.IP
 .B Note:
 The
 .B \-mouseonly
@@ -74,12 +88,36 @@ option requires read access to input devices
 The user running autocutsel must be a member of the
 .B input
 group:
-.PP
+.IP
 .RS
 sudo usermod \-aG input $USER
 .RE
-.PP
+.IP
 A re-login is required for the group change to take effect.
+.TP
+.BR \-encoding ", " \-e " " \fIcharset\fR
+Convert clipboard text between UTF\-8 and the specified character encoding
+using iconv. This is useful for VNC sessions where the VNC client uses a
+legacy encoding (e.g. ISO\-8859\-1, WINDOWS\-1252) for the cutbuffer.
+.IP
+When this option is set, text received from the X selection (UTF\-8) is
+converted to the specified encoding before storing, and text served to
+requesting applications is converted back to UTF\-8. Without this option,
+no encoding conversion is performed.
+.IP
+.RS
+autocutsel \-encoding WINDOWS\-1252
+.RE
+.IP
+Run
+.B iconv \-l
+to list available encodings.
+.TP
+.B \-\-help
+Print usage information and exit. Does not require an X display.
+.TP
+.B \-\-version
+Print version information and exit. Does not require an X display.
 .SH EXAMPLES
 Synchronize the CLIPBOARD selection with the cutbuffer (default):
 .PP
@@ -97,6 +135,12 @@ Sync PRIMARY to CLIPBOARD on mouse selection only (single instance):
 .PP
 .RS
 autocutsel \-selection PRIMARY \-mouseonly
+.RE
+.PP
+Synchronize with encoding conversion for a VNC session using Windows\-1252:
+.PP
+.RS
+autocutsel \-encoding WINDOWS\-1252
 .RE
 .SH INSTANCE MANAGEMENT
 .B autocutsel
@@ -191,6 +235,34 @@ The systemd service works on GNOME (since 3.34) and KDE Plasma (since 5.25)
 on both X11 and Wayland. XFCE and standalone window managers do not activate
 .B graphical\-session.target
 by default and require manual setup.
+.SH WAYLAND SUPPORT
+.B autocutsel
+automatically detects Wayland sessions by checking the
+.B WAYLAND_DISPLAY
+environment variable. On Wayland the X11 cutbuffer does not exist, so
+autocutsel switches to direct selection sync: instead of storing values in
+the cutbuffer, it directly owns the target selection.
+.PP
+When monitoring PRIMARY (the recommended setup on Wayland), changes are synced
+directly to CLIPBOARD. When monitoring CLIPBOARD, changes are synced to
+PRIMARY.
+.PP
+Typical Wayland usage (single instance):
+.PP
+.RS
+autocutsel \-selection PRIMARY
+.RE
+.PP
+This also works with
+.B \-buttonup
+and
+.BR \-encoding .
+The
+.B \-cutbuffer
+option is ignored on Wayland since no cutbuffer is involved.
+The
+.B \-mouseonly
+option already used direct selection sync and continues to work as before.
 .SH AUTHORS
 Originally written by Michael Witrant <mike@lepton.fr>.
 .br

@@ -8,7 +8,7 @@ X servers use two schemes to copy text between applications. The first one
 application can store text. The other scheme is the selection and works
 differently. There may be many selections in a single server. An
 application does not copy data in a selection, it "owns" it. When
-another application wants to retreive the content of a selection, it
+another application wants to retrieve the content of a selection, it
 asks the owner.
 
 Recent desktop applications (GNOME, KDE, ...) use two selections: the
@@ -32,18 +32,30 @@ Windows, the cutbuffer and the CLIPBOARD selection are updated. When you
 copy text on the server using either the cutbuffer or the CLIPBOARD
 selection, the Windows's clipboard is always updated.
 
+On Wayland the X11 cutbuffer does not exist. Autocutsel detects this
+automatically and synchronizes selections directly instead. See "Wayland
+support" below.
+
 To build autocutsel:
+ ./bootstrap
  ./configure
  make
 
-If you downloaded autocutsel from git you first have to run ./bootstrap to
-build the configure script.
+The bootstrap step requires autoconf, automake, libtool, and pkg-config. It
+generates the configure script and Makefile.in from the autotools sources.
 
 If configure fails because it can't find X or Xaw libraries, you may have to
 install the devel packages of these libraries.
 
-On Ubuntu, you may need to install these packages :
-  sudo apt-get install libc6-dev libxtst-dev xorg-dev
+On Fedora/RHEL:
+  sudo dnf install gcc make autoconf automake libtool \
+    libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+    libinput-devel systemd-devel
+
+On Ubuntu/Debian:
+  sudo apt-get install gcc make autoconf automake libtool pkg-config \
+    libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+    libinput-dev libudev-dev
 
 To install it (as root):
  make install
@@ -78,7 +90,7 @@ handles both selections in a single process.
 This uses libinput to detect mouse button releases and only syncs the PRIMARY
 selection to CLIPBOARD after a mouse click. Keyboard-based selections (e.g.
 Shift+Arrow in text editors) are ignored. This is useful when working in editors
-like VSCode where keyboard selection would otherwise overwrite your clipboard.
+like text editors where keyboard selection would otherwise overwrite your clipboard.
 
 The "-mouseonly" option works on both X11 and Wayland (via XWayland) and
 requires libinput and libudev. It directly owns the CLIPBOARD selection instead
@@ -88,6 +100,30 @@ The "-mouseonly" option requires read access to input devices (/dev/input/*).
 The user running autocutsel must be a member of the "input" group:
  sudo usermod -aG input $USER
 A re-login is required for the group change to take effect.
+
+Wayland support:
+
+autocutsel automatically detects Wayland sessions (via the WAYLAND_DISPLAY
+environment variable). On Wayland the X11 cutbuffer does not work, so
+autocutsel switches to direct selection sync: instead of storing values in
+the cutbuffer, it directly owns the target selection.
+
+When monitoring PRIMARY (recommended on Wayland), changes are synced directly
+to CLIPBOARD. When monitoring CLIPBOARD, changes are synced to PRIMARY.
+
+Typical Wayland usage (single instance):
+ autocutsel -selection PRIMARY
+
+This also works with "-buttonup" and "-encoding" on Wayland. The "-cutbuffer"
+option is ignored on Wayland since no cutbuffer is involved. The "-mouseonly"
+option already used direct selection sync and continues to work as before.
+
+If you use a VNC client that stores clipboard text in a legacy encoding (e.g.
+Windows-1252 or ISO-8859-1) in the cutbuffer, you can use the "-encoding"
+option to convert between that encoding and UTF-8:
+ autocutsel -encoding WINDOWS-1252
+Run "iconv -l" to list available encodings. Without this option, no encoding
+conversion is performed.
 
 Running as a systemd user service:
 
@@ -146,4 +182,4 @@ Original repository: https://github.com/sigmike/autocutsel
 
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA

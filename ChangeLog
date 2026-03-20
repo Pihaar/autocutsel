@@ -1,6 +1,16 @@
+v0.11.0: 2026-03-20
+  - added -mouseonly option: sync PRIMARY to CLIPBOARD on mouse selection only
+  - added -encoding option: iconv-based encoding conversion for VNC sessions
+  - added UTF8_STRING fallback to XA_STRING for older X11 clients
+  - added Wayland auto-detection: direct selection sync without cutbuffer
+  - added systemd template unit (autocutsel@.service) with per-instance config
+  - added single-instance check per selection
+  - packaging: RPM spec, Debian packaging, Arch Linux PKGBUILD
+  - fixed spelling errors and updated FSF address in license headers
+
 v0.10.1: 2021-03-03
   - fixed allocation error (Jeremie Courreges-Anglas)
-	- updated configure scripts
+  - updated configure scripts
 
 v0.10.0: 2014-05-04
   - set WM_NAME, _NET_WM_NAME, and _NET_WM_PID (Michael Stapelberg)
@@ -36,10 +46,10 @@ v0.7.0: 2004-09-11
   - changed default selection to CLIPBOARD instead of PRIMARY (jluu)
     It means you now have to *COPY* and *PASTE* texts to have them handled
     by autocutsel. Just selecting text will only work in a few applications.
-    If you want the old behavior, run "autocusel -selection PRIMARY"
+    If you want the old behavior, run "autocutsel -selection PRIMARY"
 
 v0.6.2: 2002-06-03
-  - added a cutsel tools to change/retreive the cutbuffer
+  - added a cutsel tools to change/retrieve the cutbuffer
     or the selection
   - fixed minor bugs
 
@@ -67,7 +77,7 @@ v0.3:
   - applied a patch from Mark Warburton to ignore the cutbuffer
     value if it's empty
   - added -verbose (displays what -debug displayed before)
-  - changed -debug to display more debugging informations
+  - changed -debug to display more debugging information
   - modified the synchronization process. it should fix some
     update problems.
 
