@@ -336,6 +336,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
-          for f in rpm-fedora/*.rpm rpm-opensuse/*.rpm deb-ubuntu/*.deb deb-debian/*.deb pkg-archlinux/*.pkg.tar.zst; do
-            [ -f "$f" ] && gh release upload "$tag" "$f" --repo "$GITHUB_REPOSITORY" --clobber
-          done
+          find . -type f \( -name '*.rpm' -o -name '*.deb' -o -name '*.pkg.tar.zst' \) \
+            ! -name '*-debug*' ! -name '*-dbgsym*' ! -name '*.src.rpm' \
+            -exec gh release upload "$tag" {} --repo "$GITHUB_REPOSITORY" --clobber \;
