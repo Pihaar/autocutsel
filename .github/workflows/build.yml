@@ -356,7 +356,7 @@ jobs:
         env:
           OBS_TOKEN: ${{ secrets.OBS_RUNSERVICE_TOKEN }}
         run: |
-          curl -sf -X POST \
+          curl -sf --max-time 600 -X POST \
             -H "Authorization: Token $OBS_TOKEN" \
             "https://build.opensuse.org/trigger/runservice?project=home:Pihaar:autocutsel&package=autocutsel"
           echo "OBS stable build triggered"
