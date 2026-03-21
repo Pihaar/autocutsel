@@ -351,3 +351,12 @@ jobs:
           find . -type f \( -name '*.rpm' -o -name '*.deb' -o -name '*.pkg.tar.zst' \) \
             ! -name '*-debug*' ! -name '*-dbgsym*' ! -name '*.src.rpm' \
             -exec gh release upload "$tag" {} --repo "$GITHUB_REPOSITORY" --clobber \;
+
+      - name: Trigger OBS stable build
+        env:
+          OBS_TOKEN: ${{ secrets.OBS_RUNSERVICE_TOKEN }}
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Token $OBS_TOKEN" \
+            "https://build.opensuse.org/trigger/runservice?project=home:Pihaar:autocutsel&package=autocutsel"
+          echo "OBS stable build triggered"

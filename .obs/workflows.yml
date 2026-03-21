@@ -8,11 +8,3 @@ workflow:
     branches:
       only:
         - master
----
-workflow:
-  steps:
-    - trigger_services:
-        project: home:Pihaar:autocutsel
-        package: autocutsel
-  filters:
-    event: tag_push
