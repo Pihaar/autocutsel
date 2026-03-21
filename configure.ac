@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([autocutsel],[0.11.1],[https://github.com/Pihaar/autocutsel/issues])
+AC_INIT([autocutsel],[0.11.2],[https://github.com/Pihaar/autocutsel/issues])
 AC_CONFIG_SRCDIR([src/autocutsel.c])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 

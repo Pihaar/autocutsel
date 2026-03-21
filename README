@@ -169,6 +169,9 @@ This is a fork of autocutsel by Michael Witrant. Thanks to him for creating
 the original project.
 Original repository: https://github.com/sigmike/autocutsel
 
+Pre-built packages (openSUSE, Fedora via OBS):
+  https://build.opensuse.org/project/show/home:Pihaar:autocutsel
+
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

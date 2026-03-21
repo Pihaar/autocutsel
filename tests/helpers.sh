@@ -167,6 +167,67 @@ cleanup_instances() {
   sleep 1
 }
 
+# Check for xclip (needed by functional sync tests)
+require_xclip() {
+  if command -v xclip >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+# Set a selection value via xclip
+# Usage: set_selection CLIPBOARD|PRIMARY "value"
+set_selection() {
+  printf '%s' "$2" | xclip -selection "$1" -i
+}
+
+# Get a selection value via xclip
+# Usage: get_selection CLIPBOARD|PRIMARY
+# Sets: _sel_value
+get_selection() {
+  _sel_value=$(xclip -selection "$1" -o 2>/dev/null) || _sel_value=""
+}
+
+# Assert two strings are equal
+# Usage: assert_equal "description" "actual" "expected"
+assert_equal() {
+  _tests_run=$((_tests_run + 1))
+  _desc=$1
+  _actual=$2
+  _expected=$3
+  if [ "$_actual" = "$_expected" ]; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: $_desc"
+    return 0
+  else
+    _tests_failed=$((_tests_failed + 1))
+    echo "  FAIL: $_desc"
+    echo "    expected: $_expected"
+    echo "    got:      $_actual"
+    return 1
+  fi
+}
+
+# Assert string matches a regex pattern
+# Usage: assert_matches "description" "value" "regex"
+assert_matches() {
+  _tests_run=$((_tests_run + 1))
+  _desc=$1
+  _value=$2
+  _pattern=$3
+  if echo "$_value" | grep -qE "$_pattern"; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: $_desc"
+    return 0
+  else
+    _tests_failed=$((_tests_failed + 1))
+    echo "  FAIL: $_desc"
+    echo "    expected to match: $_pattern"
+    echo "    got: $_value"
+    return 1
+  fi
+}
+
 # Print summary and return appropriate exit code
 test_summary() {
   echo ""

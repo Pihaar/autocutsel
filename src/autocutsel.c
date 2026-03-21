@@ -337,7 +337,6 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
       PrintValue(options.value, options.length > 80 ? 80 : options.length);
       printf("\n");
     }
-    printf("  differs: %d\n", (length > 0 && value) ? ValueDiffers(value, length) : -1);
   }
 
   if (*type != 0 && *type != XT_CONVERT_FAIL) {
@@ -361,6 +360,9 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
         store_length = conv_len;
       }
     }
+
+    if (options.debug)
+      printf("  differs: %d\n", ValueDiffers(store_value, store_length));
 
     if (store_length > 0 && ValueDiffers(store_value, store_length)) {
       if (options.debug) {
@@ -474,6 +476,9 @@ void timeout(XtPointer p, XtIntervalId* i)
 
 int main(int argc, char* argv[])
 {
+  // Line-buffer stdout so output reaches the journal when running under systemd
+  setlinebuf(stdout);
+
   // Pre-scan for --help/--version before Xt opens the X connection
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-help") == 0) {
@@ -589,18 +594,33 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  // On Wayland without mouseonly: if monitoring CLIPBOARD, sync to PRIMARY
-  if (options.wayland && !options.mouseonly && sel_atom == options.target) {
-    options.target = XInternAtom(dpy, "PRIMARY", 0);
-    if (options.target == None) {
-      fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
-      return 1;
+  // On Wayland: remap so we read from one selection and write to the other.
+  // - Default (no mouseonly): monitor CLIPBOARD, sync to PRIMARY
+  // - Mouseonly: monitor PRIMARY (where mouse selections go), sync to CLIPBOARD
+  if (options.wayland && sel_atom == options.target) {
+    if (options.mouseonly) {
+      // Read from PRIMARY (mouse selections), write to CLIPBOARD (already set)
+      sel_atom = XInternAtom(dpy, "PRIMARY", 0);
+      if (sel_atom == None) {
+        fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
+        return 1;
+      }
+      options.selection = sel_atom;
+    } else {
+      // Read from CLIPBOARD, write to PRIMARY
+      options.target = XInternAtom(dpy, "PRIMARY", 0);
+      if (options.target == None) {
+        fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
+        return 1;
+      }
     }
   }
 
   if (options.debug && (options.mouseonly || options.wayland)) {
+    char *sel_name = XGetAtomName(dpy, sel_atom);
     char *target_name = XGetAtomName(dpy, options.target);
-    printf("Target selection: %s\n", target_name);
+    printf("Monitoring: %s -> Target: %s\n", sel_name, target_name);
+    XFree(sel_name);
     XFree(target_name);
   }
 

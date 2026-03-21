@@ -10,6 +10,7 @@ License:        GPL-2.0-or-later
 Group:          System/X11/Utilities
 URL:            https://github.com/Pihaar/autocutsel
 Source0:        %{name}-%{version}.tar.gz
+Conflicts:      autocutsel-nightly
 
 BuildRequires:  gcc
 BuildRequires:  make

@@ -3,12 +3,13 @@
 %global _debugsource_packages 0
 
 Name:           autocutsel
-Version:        0.11.1
+Version:        0.11.2
 Release:        1%{?dist}
 Summary:        Synchronize X selections and cutbuffer with mouse-only support
 License:        GPL-2.0-or-later
 URL:            https://github.com/Pihaar/autocutsel
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+Conflicts:      autocutsel-nightly
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -62,6 +63,13 @@ text editors.
 %{_prefix}/lib/systemd/user/autocutsel@.service
 
 %changelog
+* Sat Mar 21 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.2-1
+- Fix -mouseonly on Wayland: read from PRIMARY instead of CLIPBOARD
+- Fix cutsel UTF-8 support (UTF8_STRING with XA_STRING fallback)
+- Fix debug output to show post-encoding-conversion comparison
+- Add line-buffered stdout for systemd journal logging
+- Expand test suite to 124 assertions with functional sync tests
+
 * Sat Mar 21 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.1-1
 - Fix XChangeProperty PID type for 64-bit correctness
 - Fix allocator mismatch (XFetchBuffer/XtFree)

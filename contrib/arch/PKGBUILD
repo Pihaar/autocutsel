@@ -1,6 +1,6 @@
 # Maintainer: Patrick Haar <Pihaar@users.noreply.github.com>
 pkgname=autocutsel
-pkgver=0.11.1
+pkgver=0.11.2
 pkgrel=1
 pkgdesc='Keep the X clipboard and the cutbuffer in sync (with -mouseonly support)'
 arch=('x86_64')

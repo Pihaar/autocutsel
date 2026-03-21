@@ -81,12 +81,19 @@ static void PrintSelection(Widget w, XtPointer client_data, Atom *selection,
                            unsigned long *received_length, int *format)
 {
   Display* d = XtDisplay(w);
+  Atom utf8_string = XInternAtom(d, "UTF8_STRING", False);
 
-  if (*type == 0)
+  if (*type == 0) {
     printf("Nobody owns the selection\n");
-  else if (*type == XA_STRING) {
-      fwrite((char*)value, 1, *received_length, stdout);
-      putchar('\n');
+  } else if (*type == utf8_string || *type == XA_STRING) {
+    fwrite((char*)value, 1, *received_length, stdout);
+    putchar('\n');
+  } else if (client_data == SEL_TRY_UTF8) {
+    // UTF8_STRING not supported, fall back to XA_STRING
+    XtFree(value);
+    XtGetSelectionValue(w, *selection, XA_STRING,
+      PrintSelection, SEL_FALLBACK_STR, CurrentTime);
+    return;
   } else {
     char *name = XGetAtomName(d, *type);
     printf("Invalid type received: %s\n", name);
@@ -158,8 +165,10 @@ void OwnSelection(XtPointer p, XtIntervalId* i)
 
 void GetSelection(XtPointer p, XtIntervalId* i)
 {
-  XtGetSelectionValue(box, sel_atom, XA_STRING,
-    PrintSelection, NULL,
+  Display* d = XtDisplay(box);
+  Atom utf8_string = XInternAtom(d, "UTF8_STRING", False);
+  XtGetSelectionValue(box, sel_atom, utf8_string,
+    PrintSelection, SEL_TRY_UTF8,
     CurrentTime);
 }
 
@@ -186,6 +195,8 @@ void Exit(XtPointer p, XtIntervalId* i)
 
 int main(int argc, char* argv[])
 {
+  setlinebuf(stdout);
+
   // Pre-scan for --help/--version before Xt opens the X connection
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-help") == 0) {

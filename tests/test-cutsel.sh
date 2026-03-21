@@ -8,6 +8,10 @@ cleanup_instances
 
 echo "=== cutsel utility tests ==="
 
+# --- Cutbuffer read/write ---
+
+echo "Cutbuffer:"
+
 # Write to cutbuffer and read back
 run_capture 3 "$CUTSEL" cut "hello_test_value"
 run_capture 3 "$CUTSEL" cut
@@ -19,31 +23,107 @@ run_capture 3 "$CUTSEL" cut
 assert_contains "cutbuffer update" "$_output" "second_value"
 assert_not_contains "cutbuffer replaced old value" "$_output" "hello_test_value"
 
+# --- Selection own and read ---
+
+echo ""
+echo "Selection:"
+
 # Set selection and read it back
-# Start owning the selection in background
 "$CUTSEL" sel "owned_selection_value" &
 PID=$!
 sleep 1
-# Read the selection
 run_capture 3 "$CUTSEL" sel
 assert_contains "selection round-trip" "$_output" "owned_selection_value"
 kill "$PID" 2>/dev/null
 wait "$PID" 2>/dev/null
 
-# Query targets
-run_capture 3 "$CUTSEL" targets
-assert_contains "targets command works" "$_output" "targets"
+# --- UTF-8 selection round-trip ---
 
-# Query length
+echo ""
+echo "UTF-8:"
+
+# UTF-8 text with various scripts
+"$CUTSEL" sel "Ärger öffnet Über" &
+PID=$!
+sleep 1
+run_capture 3 "$CUTSEL" sel
+assert_contains "UTF-8 umlauts round-trip" "$_output" "Ärger öffnet Über"
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+# ASCII-only should also work
+"$CUTSEL" sel "plain ASCII 123!@#" &
+PID=$!
+sleep 1
+run_capture 3 "$CUTSEL" sel
+assert_contains "ASCII round-trip" "$_output" "plain ASCII 123!@#"
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+# --- Targets command format ---
+
+echo ""
+echo "Targets:"
+
+# Query targets from our own owner (which supports all types)
+"$CUTSEL" sel "targets_test" &
+PID=$!
+sleep 1
+run_capture 3 "$CUTSEL" targets
+assert_contains "targets lists UTF8_STRING" "$_output" "UTF8_STRING"
+assert_contains "targets lists STRING" "$_output" "STRING"
+assert_matches "targets shows count" "$_output" "^[0-9]+ targets"
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+# --- Length command validation ---
+
+echo ""
+echo "Length:"
+
+# Set known-length value and verify
+"$CUTSEL" sel "12345" &
+PID=$!
+sleep 1
 run_capture 3 "$CUTSEL" length
-# Should return some response (either a length or "No length received")
-_tests_run=$((_tests_run + 1))
-if [ -n "$_output" ]; then
-  _tests_passed=$((_tests_passed + 1))
-  echo "  PASS: length command produces output"
-else
-  _tests_failed=$((_tests_failed + 1))
-  echo "  FAIL: length command produces no output"
-fi
+assert_contains "length reports value" "$_output" "Length is"
+assert_matches "length output is hex number" "$_output" "Length is [0-9a-f]+"
+# 5 bytes = 0x5
+assert_contains "length value correct for '12345'" "$_output" "Length is 5"
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+# Longer string
+"$CUTSEL" sel "abcdefghij" &
+PID=$!
+sleep 1
+run_capture 3 "$CUTSEL" length
+assert_contains "length correct for 10 chars" "$_output" "Length is a"
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
+
+# --- Cutbuffer isolation from selection ---
+
+echo ""
+echo "Cutbuffer vs selection isolation:"
+
+# Set cutbuffer to one value, selection to another
+run_capture 3 "$CUTSEL" cut "cutbuf_only"
+"$CUTSEL" sel "sel_only" &
+PID=$!
+sleep 1
+
+# Read cutbuffer — should still be the cutbuffer value
+run_capture 3 "$CUTSEL" cut
+assert_contains "cutbuffer not overwritten by selection" "$_output" "cutbuf_only"
+assert_not_contains "cutbuffer does not contain selection value" "$_output" "sel_only"
+
+# Read selection — should be the selection value
+run_capture 3 "$CUTSEL" sel
+assert_contains "selection not overwritten by cutbuffer" "$_output" "sel_only"
+assert_not_contains "selection does not contain cutbuffer value" "$_output" "cutbuf_only"
+
+kill "$PID" 2>/dev/null
+wait "$PID" 2>/dev/null
 
 test_summary

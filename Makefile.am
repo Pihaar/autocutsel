@@ -15,7 +15,8 @@ TESTS = tests/test-no-display.sh \
 	tests/test-modes.sh \
 	tests/test-wayland.sh \
 	tests/test-instance.sh \
-	tests/test-cutsel.sh
+	tests/test-cutsel.sh \
+	tests/test-sync.sh
 
 TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(SHELL)
@@ -42,6 +43,7 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in cutsel.1.in \
 	tests/test-wayland.sh \
 	tests/test-instance.sh \
 	tests/test-cutsel.sh \
+	tests/test-sync.sh \
 	contrib/systemd/autocutsel@.service \
 	contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \
