@@ -381,7 +381,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
-          gh release edit "$tag" --draft=false --latest
+          gh release edit "$tag" --draft=false --latest --repo "$GITHUB_REPOSITORY"
 
       - name: Trigger OBS stable build
         env:
