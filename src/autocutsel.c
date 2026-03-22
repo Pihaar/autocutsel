@@ -214,6 +214,13 @@ static void LoseTarget(Widget w, Atom *selection)
   options.own_target = 0;
 }
 
+// No-op callback for temporary PRIMARY ownership used to clear stale holders
+static void LosePrimaryTemp(Widget w, Atom *selection)
+{
+  (void)w;
+  (void)selection;
+}
+
 // Returns true if value (or length) is different
 // than current ones.
 static int ValueDiffers(char *value, int length)
@@ -401,6 +408,19 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
                (char*)options.value,
                (int)(options.length),
                buffer );
+
+        // Clear stale PRIMARY holders (e.g. xterm visual selection)
+        // so middle-click pastes the new cutbuffer content instead
+        // of the old PRIMARY value.
+        Atom primary = XInternAtom(dpy, "PRIMARY", False);
+        if (sel_atom != primary) {
+          if (XtOwnSelection(box, primary, CurrentTime,
+              ConvertSelection, LosePrimaryTemp, NULL) == True) {
+            if (options.debug)
+              printf("Clearing stale PRIMARY selection\n");
+            XtDisownSelection(box, primary, CurrentTime);
+          }
+        }
       }
 
       XtFree(value);
