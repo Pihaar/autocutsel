@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+  - type: input
+    id: version
+    attributes:
+      label: autocutsel version
+      description: Output of `autocutsel --version`
+      placeholder: "autocutsel v0.11.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      options:
+        - Built from source
+        - OBS package (RPM)
+        - OBS package (DEB)
+        - OBS package (Arch)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: display-server
+    attributes:
+      label: Display server
+      options:
+        - X11
+        - Wayland (XWayland)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: "e.g. Fedora 43, openSUSE Tumbleweed, Debian 13"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug. What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Run `autocutsel -selection PRIMARY -mouseonly -debug`
+        2. Select text in xterm
+        3. Try to paste in Firefox with Ctrl+V
+        4. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug output / logs
+      description: Run with `-debug` and paste the relevant output, or `journalctl --user -u 'autocutsel@*'`
+      render: text
