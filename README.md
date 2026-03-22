@@ -5,15 +5,15 @@ X11/Wayland clipboard synchronization tool. Keeps the cutbuffer, CLIPBOARD, and 
 > This is an actively maintained fork of [sigmike/autocutsel](https://github.com/sigmike/autocutsel).
 
 [![Build](https://github.com/Pihaar/autocutsel/actions/workflows/build.yml/badge.svg)](https://github.com/Pihaar/autocutsel/actions/workflows/build.yml)
-[![OBS stable](https://build.opensuse.org/projects/home:Pihaar:autocutsel/packages/autocutsel/badge.svg?type=default)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel)
-[![OBS nightly](https://build.opensuse.org/projects/home:Pihaar:autocutsel/packages/autocutsel-nightly/badge.svg?type=default)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel-nightly)
+[![OBS stable](https://img.shields.io/badge/Build%20status%20for-stable%20package:-blue)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel) [![](https://build.opensuse.org/projects/home:Pihaar:autocutsel/packages/autocutsel/badge.svg?type=default)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel)
+[![OBS nightly](https://img.shields.io/badge/Build%20status%20for-nightly%20package:-blue)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel-nightly) [![](https://build.opensuse.org/projects/home:Pihaar:autocutsel/packages/autocutsel-nightly/badge.svg?type=default)](https://build.opensuse.org/package/show/home:Pihaar:autocutsel/autocutsel-nightly)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 
 ## Pre-built packages
 
 RPM and DEB packages for many distributions are available via the [openSUSE Build Service](https://build.opensuse.org/project/show/home:Pihaar:autocutsel):
 
-openSUSE (Tumbleweed, Slowroll, Leap 15.5-16.0), Fedora (43, Rawhide), Debian 13, Arch Linux, CentOS Stream (9, 10), RockyLinux 9, SUSE SLFO (1.2, Main).
+openSUSE, Fedora, Debian, Arch Linux, CentOS, SUSE SLFO.
 
 ## Features (beyond upstream)
 
@@ -70,7 +70,7 @@ Basic usage (sync CLIPBOARD with cutbuffer):
 autocutsel
 ```
 
-Mouse-only mode (recommended — sync PRIMARY to CLIPBOARD on mouse selection only):
+Mouse-only mode (sync PRIMARY to CLIPBOARD on mouse selection only):
 
 ```sh
 autocutsel -selection PRIMARY -mouseonly
@@ -121,7 +121,7 @@ Available configurations in `examples/`:
 
 | File | Description |
 |------|-------------|
-| `mouseonly.args` | Sync PRIMARY to CLIPBOARD on mouse selection only (recommended) |
+| `mouseonly.args` | Sync PRIMARY to CLIPBOARD on mouse selection only |
 | `clipboard.args` | Sync CLIPBOARD with cutbuffer (traditional, pair with primary) |
 | `primary.args` | Sync PRIMARY with cutbuffer (traditional, pair with clipboard) |
 
