@@ -34,7 +34,7 @@ autocutselargs_DATA = contrib/systemd/mouseonly.args \
 	contrib/systemd/clipboard.args \
 	contrib/systemd/primary.args
 
-EXTRA_DIST = AUTHORS COPYING ChangeLog README autocutsel.1.in cutsel.1.in \
+EXTRA_DIST = AUTHORS COPYING ChangeLog README.md autocutsel.1.in cutsel.1.in \
 	bootstrap \
 	tests/helpers.sh \
 	tests/test-no-display.sh \

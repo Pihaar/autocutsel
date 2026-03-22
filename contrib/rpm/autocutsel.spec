@@ -51,7 +51,7 @@ text editors.
 
 %files
 %license COPYING
-%doc README AUTHORS ChangeLog
+%doc README.md AUTHORS ChangeLog
 %dir %{_docdir}/%{name}/examples
 %{_docdir}/%{name}/examples/mouseonly.args
 %{_docdir}/%{name}/examples/clipboard.args
