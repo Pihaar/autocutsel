@@ -3,7 +3,7 @@
 %global _debugsource_packages 0
 
 Name:           autocutsel
-Version:        0.11.2
+Version:        0.11.3
 Release:        1%{?dist}
 Summary:        Synchronize X selections and cutbuffer with mouse-only support
 License:        GPL-2.0-or-later
@@ -63,6 +63,11 @@ text editors.
 %{_prefix}/lib/systemd/user/autocutsel@.service
 
 %changelog
+* Mon Mar 23 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.3-1
+- Fix security issues in autocutsel, cutsel, and common
+- Add comprehensive robustness test suite (199 assertions)
+- Expand README with installation instructions and option documentation
+
 * Sat Mar 21 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.2-1
 - Fix -mouseonly on Wayland: read from PRIMARY instead of CLIPBOARD
 - Fix cutsel UTF-8 support (UTF8_STRING with XA_STRING fallback)
