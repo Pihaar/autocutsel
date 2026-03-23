@@ -109,7 +109,12 @@ char *ConvertEncoding(const char *from_enc, const char *to_enc,
     return NULL;
   }
 
-  *out_len = (int)(out_alloc - out_left);
+  size_t result_len = out_alloc - out_left;
+  if (result_len > INT_MAX) {
+    XtFree(out_buf);
+    return NULL;
+  }
+  *out_len = (int)result_len;
   return out_buf;
 }
 
@@ -124,13 +129,20 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     XtGetSelectionRequest(w, *selection, (XtRequestId)NULL);
   Atom utf8_string = XInternAtom(d, "UTF8_STRING", False);
 
+  if (!req) {
+    if (options.debug)
+      printf("ConvertSelection: no selection request event\n");
+    return False;
+  }
+
   if (options.debug) {
     char *target_name = XGetAtomName(d, *target);
     char *sel_name = XGetAtomName(d, *selection);
     printf("Window 0x%lx requested %s of selection %s.\n",
-      req->requestor, target_name, sel_name);
-    XFree(target_name);
-    XFree(sel_name);
+      req->requestor, target_name ? target_name : "?",
+      sel_name ? sel_name : "?");
+    if (target_name) XFree(target_name);
+    if (sel_name) XFree(sel_name);
   }
 
   if (*target == XA_TARGETS(d)) {
@@ -139,8 +151,15 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     unsigned long std_length;
     unsigned long i;
 
-    XmuConvertStandardSelection(w, req->time, selection, target, type,
-        &std_targets, &std_length, format);
+    if (!XmuConvertStandardSelection(w, req->time, selection, target, type,
+        &std_targets, &std_length, format)) {
+      std_targets = NULL;
+      std_length = 0;
+    }
+    if (std_length > ULONG_MAX / sizeof(Atom) - 5) {
+      if (std_targets) XtFree((char*)std_targets);
+      return False;
+    }
     *value = XtMalloc(sizeof(Atom)*(std_length + 5));
     targetP = *(Atom**)value;
     atoms = targetP;
@@ -159,8 +178,8 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
       printf("Targets are: ");
       for (i=0; i<*length; i++) {
         char *name = XGetAtomName(d, atoms[i]);
-        printf("%s ", name);
-        XFree(name);
+        printf("%s ", name ? name : "?");
+        if (name) XFree(name);
       }
       printf("\n");
     }
@@ -197,8 +216,8 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
 
     if (options.debug) {
       char *name = XGetAtomName(d, *target);
-      printf("Returning %s ", name);
-      XFree(name);
+      printf("Returning %s ", name ? name : "?");
+      if (name) XFree(name);
       PrintValue((char*)*value, (int)*length);
       printf("\n");
     }

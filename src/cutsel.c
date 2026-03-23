@@ -96,8 +96,8 @@ static void PrintSelection(Widget w, XtPointer client_data, Atom *selection,
     return;
   } else {
     char *name = XGetAtomName(d, *type);
-    printf("Invalid type received: %s\n", name);
-    XFree(name);
+    printf("Invalid type received: %s\n", name ? name : "?");
+    if (name) XFree(name);
   }
 
   XtFree(value);
@@ -119,13 +119,13 @@ static void TargetsReceived(Widget w, XtPointer client_data, Atom *selection,
     printf("%lu targets (%i bits each):\n", *length, *format);
     for (i=0; i<*length; i++) {
       char *name = XGetAtomName(d, atoms[i]);
-      printf("%s\n", name);
-      XFree(name);
+      printf("%s\n", name ? name : "?");
+      if (name) XFree(name);
     }
   } else {
     char *name = XGetAtomName(d, *type);
-    printf("Invalid type received: %s\n", name);
-    XFree(name);
+    printf("Invalid type received: %s\n", name ? name : "?");
+    if (name) XFree(name);
   }
 
   XtFree(value);
@@ -144,8 +144,8 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
       printf("Length is %" PRIx32 "\n", (uint32_t)*(CARD32*)value);
   } else {
       char *name = XGetAtomName(d, *type);
-      printf("Invalid type received: %s\n", name);
-      XFree(name);
+      printf("Invalid type received: %s\n", name ? name : "?");
+      if (name) XFree(name);
   }
 
   XtFree(value);
@@ -154,8 +154,7 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
 
 void OwnSelection(XtPointer p, XtIntervalId* i)
 {
-  if (XtOwnSelection(box, options.selection,
-                     0, //XtLastTimestampProcessed(dpy),
+  if (XtOwnSelection(box, options.selection, CurrentTime,
                      ConvertSelection, LoseSelection, NULL) == True) {
     if (options.debug)
       printf("Selection owned\n");
@@ -253,7 +252,12 @@ int main(int argc, char* argv[])
     return 1;
   }
   options.selection = sel_atom;
-  buffer = 0;
+
+  buffer = options.buffer;
+  if (buffer < 0 || buffer > 7) {
+    fprintf(stderr, "cutsel: cutbuffer number must be 0-7\n");
+    return 1;
+  }
 
   if (strcmp(argv[1], "cut") == 0) {
     if (argc > 2) {
@@ -264,7 +268,7 @@ int main(int argc, char* argv[])
       XtAppAddTimeOut(context, 10, Exit, 0);
     } else {
       options.value = XFetchBuffer(dpy, &options.length, buffer);
-      if (options.length) {
+      if (options.value && options.length > 0) {
         fwrite(options.value, 1, options.length, stdout);
         putchar('\n');
       }

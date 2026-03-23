@@ -35,7 +35,7 @@
 // libinput callbacks for opening/closing device files
 static int open_restricted(const char *path, int flags, void *user_data)
 {
-  int fd = open(path, flags);
+  int fd = open(path, flags | O_CLOEXEC);
   return fd < 0 ? -errno : fd;
 }
 
@@ -74,8 +74,11 @@ static void *libinput_thread(void *arg)
   struct pollfd pfd = { .fd = libinput_get_fd(li), .events = POLLIN };
 
   while (atomic_load(&li_thread_running)) {
-    if (poll(&pfd, 1, 500) < 0)
+    if (poll(&pfd, 1, 500) < 0) {
+      if (errno != EINTR)
+        usleep(100000);  // backoff on persistent errors
       continue;
+    }
     libinput_dispatch(li);
     struct libinput_event *ev;
     while ((ev = libinput_get_event(li)) != NULL) {
@@ -287,8 +290,10 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
       printf("\n");
     }
 
-    if (XtOwnSelection(box, options.selection,
-        0, //XtLastTimestampProcessed(dpy),
+    // CurrentTime is used because autocutsel is timer-driven with no triggering
+    // user event. XtLastTimestampProcessed could be stale and cause the X server
+    // to reject the ownership claim (ICCCM §2.1).
+    if (XtOwnSelection(box, options.selection, CurrentTime,
         ConvertSelection, LoseSelection, NULL) == True) {
       if (options.debug)
         printf("Selection owned\n");
@@ -568,26 +573,20 @@ int main(int argc, char* argv[])
     options.fork = 0;
 
   if (options.fork) {
-    if (getppid () != 1) {
-#ifdef SETPGRP_VOID
-      setpgrp();
-#else
-      setpgrp(0, 0);
-#endif
-      switch (fork()) {
-      case -1:
-        fprintf (stderr, "could not fork, exiting\n");
-        return errno;
-      case 0:
-        sleep(3); /* Wait for parent to exit */
-        if (chdir("/") < 0)
-          perror("chdir");
-        TrapSignals();
-        CloseStdFds();
-        break;
-      default:
-        return 0;
-      }
+    switch (fork()) {
+    case -1:
+      fprintf (stderr, "could not fork, exiting\n");
+      return errno;
+    case 0:
+      if (setsid() < 0)
+        perror("setsid");
+      if (chdir("/") < 0)
+        perror("chdir");
+      TrapSignals();
+      CloseStdFds();
+      break;
+    default:
+      return 0;
     }
   }
 
@@ -639,12 +638,17 @@ int main(int argc, char* argv[])
   if (options.debug && (options.mouseonly || options.wayland)) {
     char *sel_name = XGetAtomName(dpy, sel_atom);
     char *target_name = XGetAtomName(dpy, options.target);
-    printf("Monitoring: %s -> Target: %s\n", sel_name, target_name);
-    XFree(sel_name);
-    XFree(target_name);
+    printf("Monitoring: %s -> Target: %s\n",
+           sel_name ? sel_name : "?", target_name ? target_name : "?");
+    if (sel_name) XFree(sel_name);
+    if (target_name) XFree(target_name);
   }
 
-  buffer = 0;
+  buffer = options.buffer;
+  if (buffer < 0 || buffer > 7) {
+    fprintf(stderr, "autocutsel: cutbuffer number must be 0-7\n");
+    return 1;
+  }
 
   if (!options.wayland) {
     char *xbuf = XFetchBuffer(dpy, &options.length, buffer);
@@ -665,9 +669,16 @@ int main(int argc, char* argv[])
   // Single-instance check: use a lock selection per monitored selection name
   {
     char lock_name[256];
-    snprintf(lock_name, sizeof(lock_name), "_AUTOCUTSEL_LOCK_%s",
+    int n = snprintf(lock_name, sizeof(lock_name), "_AUTOCUTSEL_LOCK_%s",
              options.selection_name);
+    if (n >= (int)sizeof(lock_name)) {
+      fprintf(stderr, "autocutsel: selection name too long for lock atom\n");
+      return 1;
+    }
     Atom lock_atom = XInternAtom(dpy, lock_name, 0);
+
+    // Note: TOCTOU race between check and XSetSelectionOwner is inherent to X11.
+    // The confirming XGetSelectionOwner below mitigates but does not eliminate it.
 
     if (XGetSelectionOwner(dpy, lock_atom) != None) {
       fprintf(stderr, "autocutsel: another instance is already running"
