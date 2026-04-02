@@ -1,3 +1,15 @@
+autocutsel (0.11.4-1) unstable; urgency=medium
+
+  * Add bidirectional reverse sync in mouseonly mode (CLIPBOARD to PRIMARY).
+  * Fix timeout() branch priority: mouseonly reverse poll was starved on X11.
+  * Fix UB memmove(NULL,0) in ConvertSelection TARGETS response.
+  * Fix selection ownership ping-pong when both conversions fail.
+  * Add -pause validation, SIGPIPE handling, memory zeroing before free.
+  * Improve test reliability: poll-based waiting, clean Xvfb display isolation.
+  * Expand test suite with reverse sync regression and robustness tests.
+
+ -- Patrick Haar <Pihaar@users.noreply.github.com>  Wed, 02 Apr 2026 18:00:00 +0200
+
 autocutsel (0.11.3-1) unstable; urgency=medium
 
   * Fix security issues in autocutsel, cutsel, and common.

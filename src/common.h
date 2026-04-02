@@ -88,6 +88,10 @@ typedef struct {
   int     own_target;
   int     wayland;
   String  encoding;
+  // Reverse-direction tracking: last known value of the target selection,
+  // used in mouseonly/Wayland mode to detect external CLIPBOARD changes.
+  char*   reverse_value;
+  int     reverse_length;
 } OptionsRec;
 
 extern Widget box;

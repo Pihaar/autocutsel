@@ -3,7 +3,7 @@
 set -u
 . "$(dirname "$0")/helpers.sh"
 
-ensure_display || skip_all "No X display available"
+ensure_clean_display || skip_all "No X display available"
 
 # Cutbuffer tests require the X11 cutbuffer path — disable Wayland detection
 # so autocutsel uses XStoreBuffer/XFetchBuffer instead of direct selection sync.
@@ -115,7 +115,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer_size "$((_expected_size - 10))" 0 15
 
   run_capture 5 "$CUTSEL" cut
   _actual_size=$(printf '%s' "$_output" | wc -c)
@@ -147,7 +147,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 5
+  wait_for_cutbuffer_size "$((_expected_size - 10))" 0 20
 
   run_capture 10 "$CUTSEL" cut
   _actual_size=$(printf '%s' "$_output" | wc -c)
@@ -178,7 +178,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 8
+  wait_for_cutbuffer_size "$((_expected_size - 10))" 0 30
 
   run_capture 15 "$CUTSEL" cut
   _actual_size=$(printf '%s' "$_output" | wc -c)
@@ -256,7 +256,7 @@ if require_xclip; then
   # Start autocutsel monitoring cutbuffer 3
   "$AUTOCUTSEL" -cutbuffer 3 &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "synced_to_buf3" 3 10
 
   run_capture 3 "$CUTSEL" -cutbuffer 3 cut
   assert_contains "autocutsel syncs to cutbuffer 3" "$_output" "synced_to_buf3"
@@ -293,8 +293,8 @@ if require_xclip; then
   # After only 1 second with 5s pause, the value should NOT be synced yet
   assert_not_contains "5s pause delays sync" "$_output" "pause_test_value"
 
-  # After waiting long enough, it should sync (first poll at ~5s from start)
-  sleep 6
+  # After waiting long enough, it should sync (poll-based wait)
+  wait_for_cutbuffer "pause_test_value" 0 15
   run_capture 3 "$CUTSEL" cut
   assert_contains "sync happens after pause interval" "$_output" "pause_test_value"
 
@@ -406,7 +406,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "persist_test_value" 0 10
 
   # Value should be in cutbuffer now
   run_capture 3 "$CUTSEL" cut
@@ -560,7 +560,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "signal_persist" 0 10
 
   run_capture 3 "$CUTSEL" cut
   assert_contains "value synced before signal" "$_output" "signal_persist"
@@ -588,7 +588,7 @@ if require_xclip; then
   sleep 1
 
   set_selection CLIPBOARD "owner_will_die"
-  sleep 3
+  wait_for_cutbuffer "owner_will_die" 0 10
 
   run_capture 3 "$CUTSEL" cut
   assert_contains "value synced before owner death" "$_output" "owner_will_die"
@@ -609,7 +609,7 @@ if require_xclip; then
 
   # Set a new value — autocutsel should pick it up
   set_selection CLIPBOARD "owner_revived"
-  sleep 3
+  wait_for_cutbuffer "owner_revived" 0 10
   run_capture 3 "$CUTSEL" cut
   assert_contains "syncs again after owner death" "$_output" "owner_revived"
 
@@ -639,7 +639,7 @@ if require_xclip; then
   done
 
   # Wait for sync to settle
-  sleep 3
+  wait_for_cutbuffer "rapid_9" 0 10
 
   # The cutbuffer should have one of the later values (at least "rapid_9")
   run_capture 3 "$CUTSEL" cut
@@ -696,8 +696,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" -encoding ISO8859-1 &
   _pid=$!
-  sleep 3
-
+  wait_for_cutbuffer_size 5 0 10
   run_capture 3 "$CUTSEL" cut
   # The cutbuffer should have the Latin-1 encoded version
   # When read back as bytes, it won't be UTF-8 anymore, but the data should be there
@@ -724,9 +723,15 @@ echo "Invalid encoding:"
 cleanup_instances
 
 # autocutsel with bogus encoding should start (encoding failure is non-fatal)
-# but log iconv error in debug mode
+# but log iconv error in debug mode.  A selection owner must exist to trigger
+# the encoding conversion code path.
+"$CUTSEL" sel "encoding_trigger" &
+_enc_owner=$!
+sleep 1
 run_capture_unbuffered 3 "$AUTOCUTSEL" -encoding NONEXISTENT_CHARSET_XYZ -debug
-assert_contains "invalid encoding logged" "$_output" "iconv_open"
+assert_contains "invalid encoding logged" "$_output" "iconv"
+kill "$_enc_owner" 2>/dev/null
+wait "$_enc_owner" 2>/dev/null
 
 # --- Lossy encoding conversion ---
 
@@ -742,7 +747,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" -encoding ISO8859-1 -debug &
   _pid=$!
-  sleep 3
+  sleep 2  # just wait for startup, no sync assertion here
 
   # autocutsel should still be running (iconv failure is non-fatal)
   _tests_run=$((_tests_run + 1))
@@ -774,7 +779,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" -selection SECONDARY &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "secondary_sel_val" 0 10
 
   run_capture 3 "$CUTSEL" cut
   assert_contains "non-default selection name syncs" "$_output" "secondary_sel_val"
@@ -801,7 +806,7 @@ if require_xclip; then
   # Start autocutsel (monitors CLIPBOARD by default)
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "new_clipboard_val" 0 10
 
   # After sync, autocutsel should have briefly owned PRIMARY (to clear stale holders)
   # and then disowned it. The stale PRIMARY value should be gone.
@@ -833,7 +838,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "first_run_val" 0 10
   run_capture 3 "$CUTSEL" cut
   assert_contains "first run synced" "$_output" "first_run_val"
 
@@ -846,7 +851,7 @@ if require_xclip; then
   sleep 1
   "$AUTOCUTSEL" &
   _pid=$!
-  sleep 3
+  wait_for_cutbuffer "second_run_val" 0 10
   run_capture 3 "$CUTSEL" cut
   assert_contains "second run synced new value" "$_output" "second_run_val"
 
@@ -873,6 +878,109 @@ while [ "$_b" -le 7 ]; do
   assert_contains "cutbuffer $_b has correct value" "$_output" "val_buf_${_b}"
   _b=$((_b + 1))
 done
+
+# --- Mouseonly reverse sync (CLIPBOARD → PRIMARY) ---
+
+echo ""
+echo "Mouseonly reverse sync:"
+
+cleanup_instances
+
+# Start mouseonly — may not be available without libinput/input group
+"$AUTOCUTSEL" -mouseonly 2>/dev/null &
+_pid=$!
+sleep 1
+if ! kill -0 "$_pid" 2>/dev/null; then
+  _tests_run=$((_tests_run + 1))
+  _tests_skipped=$((_tests_skipped + 1))
+  echo "  SKIP: mouseonly not available (libinput/input group)"
+  wait "$_pid" 2>/dev/null
+elif require_xclip && [ "$_clean_display" -eq 1 ]; then
+  # Reverse: external CLIPBOARD write should appear in PRIMARY
+  set_selection CLIPBOARD "reverse_robustness_val"
+  wait_for_selection PRIMARY "reverse_robustness_val" 10
+  get_selection PRIMARY
+  assert_equal "mouseonly reverse sync" "$_sel_value" "reverse_robustness_val"
+
+  # Multiple rapid CLIPBOARD updates — last one should win
+  _j=0
+  while [ "$_j" -lt 5 ]; do
+    set_selection CLIPBOARD "rapid_reverse_${_j}"
+    _j=$((_j + 1))
+  done
+  wait_for_selection PRIMARY "rapid_reverse_4" 10
+  get_selection PRIMARY
+  assert_equal "rapid reverse sync final value" "$_sel_value" "rapid_reverse_4"
+
+  # No ping-pong: CLIPBOARD should still hold the same value
+  sleep 2
+  get_selection CLIPBOARD
+  assert_equal "no ping-pong after rapid reverse" "$_sel_value" "rapid_reverse_4"
+
+  # P1: Branch priority regression — reverse continues after own_selection=1
+  set_selection CLIPBOARD "branch_priority_test_1"
+  wait_for_selection PRIMARY "branch_priority_test_1" 10
+  get_selection PRIMARY
+  assert_equal "branch priority: first reverse" "$_sel_value" "branch_priority_test_1"
+  # own_selection is now 1 — this is where the old bug would block the reverse poll
+  set_selection CLIPBOARD "branch_priority_test_2"
+  wait_for_selection PRIMARY "branch_priority_test_2" 10
+  get_selection PRIMARY
+  assert_equal "branch priority: second reverse after own_selection=1" "$_sel_value" "branch_priority_test_2"
+
+  # P2: Both flags quiescent — after forward+reverse, system is idle
+  sleep 2
+  get_selection PRIMARY
+  assert_equal "quiescent: PRIMARY stable" "$_sel_value" "branch_priority_test_2"
+  get_selection CLIPBOARD
+  assert_equal "quiescent: CLIPBOARD stable" "$_sel_value" "branch_priority_test_2"
+
+  kill "$_pid" 2>/dev/null
+  wait "$_pid" 2>/dev/null
+
+  # --- Encoding + reverse sync ---
+
+  echo ""
+  echo "Mouseonly reverse sync with encoding:"
+
+  cleanup_instances
+  "$AUTOCUTSEL" -mouseonly -encoding ISO8859-1 2>/dev/null &
+  _pid=$!
+  sleep 1
+
+  if kill -0 "$_pid" 2>/dev/null; then
+    # ASCII through reverse+encoding should round-trip cleanly
+    set_selection CLIPBOARD "encoding_reverse_abc"
+    wait_for_selection PRIMARY "encoding_reverse_abc" 10
+    get_selection PRIMARY
+    assert_equal "encoding reverse: ASCII round-trip" "$_sel_value" "encoding_reverse_abc"
+
+    # CJK text that can't be encoded as ISO8859-1 — should not crash
+    set_selection CLIPBOARD "日本語テスト"
+    sleep 3
+    _tests_run=$((_tests_run + 1))
+    if kill -0 "$_pid" 2>/dev/null; then
+      _tests_passed=$((_tests_passed + 1))
+      echo "  PASS: encoding reverse: lossy CJK does not crash"
+    else
+      _tests_failed=$((_tests_failed + 1))
+      echo "  FAIL: autocutsel crashed on lossy reverse encoding"
+    fi
+
+    kill "$_pid" 2>/dev/null
+    wait "$_pid" 2>/dev/null
+  else
+    _tests_run=$((_tests_run + 2))
+    _tests_skipped=$((_tests_skipped + 2))
+    echo "  SKIP: mouseonly+encoding not available"
+  fi
+else
+  _tests_run=$((_tests_run + 1))
+  _tests_skipped=$((_tests_skipped + 1))
+  echo "  SKIP: xclip or clean display not available for reverse sync test"
+  kill "$_pid" 2>/dev/null
+  wait "$_pid" 2>/dev/null
+fi
 
 cleanup_instances
 test_summary

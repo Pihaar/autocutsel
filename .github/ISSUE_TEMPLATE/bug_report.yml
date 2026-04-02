@@ -11,7 +11,7 @@ body:
     attributes:
       label: autocutsel version
       description: Output of `autocutsel --version`
-      placeholder: "autocutsel v0.11.3"
+      placeholder: "autocutsel v0.11.4"
     validations:
       required: true
   - type: dropdown

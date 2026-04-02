@@ -22,10 +22,12 @@ TESTS = tests/test-no-display.sh \
 TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(SHELL)
 
-# Pass binary paths to tests so they find the just-built binaries
+# Pass binary paths to tests so they find the just-built binaries.
+# Unset WAYLAND_DISPLAY to prevent host Wayland session from affecting tests.
 TESTS_ENVIRONMENT = \
 	AUTOCUTSEL="$(abs_builddir)/autocutsel"; export AUTOCUTSEL; \
-	CUTSEL="$(abs_builddir)/cutsel"; export CUTSEL;
+	CUTSEL="$(abs_builddir)/cutsel"; export CUTSEL; \
+	unset WAYLAND_DISPLAY;
 
 systemduserunitdir = $(prefix)/lib/systemd/user
 systemduserunit_DATA = contrib/systemd/autocutsel@.service

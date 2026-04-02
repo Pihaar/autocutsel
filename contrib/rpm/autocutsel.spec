@@ -3,7 +3,7 @@
 %global _debugsource_packages 0
 
 Name:           autocutsel
-Version:        0.11.3
+Version:        0.11.4
 Release:        1%{?dist}
 Summary:        Synchronize X selections and cutbuffer with mouse-only support
 License:        GPL-2.0-or-later
@@ -63,6 +63,15 @@ text editors.
 %{_prefix}/lib/systemd/user/autocutsel@.service
 
 %changelog
+* Wed Apr 02 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.4-1
+- Add bidirectional reverse sync in mouseonly mode (CLIPBOARD to PRIMARY)
+- Fix timeout() branch priority: mouseonly reverse poll was starved on X11
+- Fix UB memmove(NULL,0) in ConvertSelection TARGETS response
+- Fix selection ownership ping-pong when both conversions fail
+- Add -pause validation, SIGPIPE handling, memory zeroing before free
+- Improve test reliability: poll-based waiting, clean Xvfb display isolation
+- Expand test suite with reverse sync regression and robustness tests
+
 * Mon Mar 23 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.3-1
 - Fix security issues in autocutsel, cutsel, and common
 - Add comprehensive robustness test suite (199 assertions)

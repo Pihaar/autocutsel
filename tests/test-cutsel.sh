@@ -87,8 +87,8 @@ PID=$!
 sleep 1
 run_capture 3 "$CUTSEL" length
 assert_contains "length reports value" "$_output" "Length is"
-assert_matches "length output is hex number" "$_output" "Length is [0-9a-f]+"
-# 5 bytes = 0x5
+assert_matches "length output is decimal number" "$_output" "Length is [0-9]+"
+# 5 bytes = 5
 assert_contains "length value correct for '12345'" "$_output" "Length is 5"
 kill "$PID" 2>/dev/null
 wait "$PID" 2>/dev/null
@@ -98,7 +98,7 @@ wait "$PID" 2>/dev/null
 PID=$!
 sleep 1
 run_capture 3 "$CUTSEL" length
-assert_contains "length correct for 10 chars" "$_output" "Length is a"
+assert_contains "length correct for 10 chars" "$_output" "Length is 10"
 kill "$PID" 2>/dev/null
 wait "$PID" 2>/dev/null
 

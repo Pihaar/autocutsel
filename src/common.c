@@ -34,7 +34,7 @@ OptionsRec options;
 void PrintValue(char *value, int length)
 {
   unsigned char c;
-  int len = 0;
+  int printed = 0;
 
   putc('"', stdout);
   for (; length > 0; length--, value++) {
@@ -55,8 +55,8 @@ void PrintValue(char *value, int length)
       else
         putc(c, stdout);
     }
-    len++;
-    if (len >= 48) {
+    printed++;
+    if (printed >= 48) {
       printf("\"...");
       return;
     }
@@ -84,6 +84,8 @@ char *ConvertEncoding(const char *from_enc, const char *to_enc,
   // Guard against integer overflow: in_len * 4 + 4
   if ((size_t)in_len > (SIZE_MAX - 4) / 4) { iconv_close(cd); return NULL; }
   size_t out_alloc = (size_t)in_len * 4 + 4;
+  /* XtMalloc calls XtErrorMsg on failure which typically exits; the NULL
+     check is unreachable in standard Xt but retained as defense-in-depth. */
   char *out_buf = XtMalloc(out_alloc);
   if (!out_buf) {
     iconv_close(cd);
@@ -169,8 +171,10 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *targetP++ = XA_TEXT(d);
     *targetP++ = XA_LENGTH(d);
     *targetP++ = XA_LIST_LENGTH(d);
-    memmove( (char*)targetP, (char*)std_targets, sizeof(Atom)*std_length);
-    XtFree((char*)std_targets);
+    if (std_targets) {
+      memmove( (char*)targetP, (char*)std_targets, sizeof(Atom)*std_length);
+      XtFree((char*)std_targets);
+    }
     *type = XA_ATOM;
     *format = 32;
 
@@ -234,7 +238,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *format = 32;
 
     if (options.debug)
-      printf("Returning %" PRIx32 "\n", (uint32_t)*temp);
+      printf("Returning %" PRIu32 "\n", (uint32_t)*temp);
 
     return True;
   }
@@ -248,7 +252,7 @@ Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
     *format = 32;
 
     if (options.debug)
-      printf("Returning %" PRIx32 "\n", (uint32_t)*temp);
+      printf("Returning %" PRIu32 "\n", (uint32_t)*temp);
 
     return True;
   }

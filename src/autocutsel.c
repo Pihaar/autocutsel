@@ -49,10 +49,11 @@ static const struct libinput_interface li_interface = {
   .close_restricted = close_restricted,
 };
 
-static _Atomic(int) li_thread_running = 1;
+static atomic_int li_thread_running = 1;
 static pthread_t li_thread_id;
 static int li_thread_created = 0;
 static Atom utf8_atom;
+static Atom primary_atom;  // cached PRIMARY atom for stale-holder clear
 static int mouse_pipe[2] = {-1, -1};
 
 // Check pipe for mouse release signal from libinput thread (non-blocking)
@@ -236,14 +237,18 @@ static int ValueDiffers(char *value, int length)
 // Update the current value
 static void ChangeValue(char *value, int length)
 {
+  /* XtMalloc calls XtErrorMsg on failure which typically exits; the NULL
+     check is unreachable in standard Xt but retained as defense-in-depth. */
   char *new_value = XtMalloc(length);
   if (!new_value) {
-    printf("WARNING: Unable to allocate memory to store the new value\n");
+    fprintf(stderr, "WARNING: Unable to allocate memory to store the new value\n");
     return;
   }
 
-  if (options.value)
+  if (options.value) {
+    memset(options.value, 0, options.length);
     XtFree(options.value);
+  }
 
   options.length = length;
   options.value = new_value;
@@ -263,6 +268,9 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
                                   unsigned long *received_length, int *format)
 {
   int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
+  if (*received_length > INT_MAX && options.debug)
+    printf("WARNING: selection truncated from %lu to %d bytes\n",
+           *received_length, length);
 
   if ((*type == 0 || *type == XT_CONVERT_FAIL) && client_data == SEL_TRY_UTF8) {
     // UTF8_STRING not supported, retry with XA_STRING before owning
@@ -272,6 +280,16 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
     XtGetSelectionValue(w, *selection, XA_STRING,
       OwnSelectionIfDiffers, SEL_FALLBACK_STR,
       CurrentTime);
+    return;
+  }
+
+  // When the selection conversion failed entirely (no owner, or owner cannot
+  // convert), only own the selection if we have a stored value to serve.
+  // Without this guard, we could enter a ping-pong loop with another client
+  // that also cannot provide a conversion.
+  if ((*type == 0 || *type == XT_CONVERT_FAIL || length == 0 || !value) &&
+      (!options.value || options.length <= 0)) {
+    XtFree(value);
     return;
   }
 
@@ -335,6 +353,9 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
                               unsigned long *received_length, int *format)
 {
   int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
+  if (*received_length > INT_MAX && options.debug)
+    printf("WARNING: selection truncated from %lu to %d bytes\n",
+           *received_length, length);
 
   if (options.debug) {
     printf("SelectionReceived: type=%lu length=%d format=%d\n",
@@ -403,6 +424,16 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
         if (XtOwnSelection(box, options.target, CurrentTime,
             ConvertSelection, LoseTarget, NULL) == True) {
           options.own_target = 1;
+          // Update reverse tracking so the reverse poll doesn't see our
+          // own forward-sync value as an "external change".
+          // Zero old buffer to avoid leaving sensitive data as heap residue.
+          if (options.reverse_value) {
+            memset(options.reverse_value, 0, options.reverse_length);
+            XtFree(options.reverse_value);
+          }
+          options.reverse_value = XtMalloc(options.length);
+          memcpy(options.reverse_value, options.value, options.length);
+          options.reverse_length = options.length;
         } else {
           printf("WARNING: Unable to own target selection!\n");
         }
@@ -411,19 +442,18 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
           printf("Updating buffer\n");
         XStoreBuffer(XtDisplay(w),
                (char*)options.value,
-               (int)(options.length),
+               options.length,
                buffer );
 
         // Clear stale PRIMARY holders (e.g. xterm visual selection)
         // so middle-click pastes the new cutbuffer content instead
         // of the old PRIMARY value.
-        Atom primary = XInternAtom(dpy, "PRIMARY", False);
-        if (sel_atom != primary) {
-          if (XtOwnSelection(box, primary, CurrentTime,
+        if (sel_atom != primary_atom) {
+          if (XtOwnSelection(box, primary_atom, CurrentTime,
               ConvertSelection, LosePrimaryTemp, NULL) == True) {
             if (options.debug)
               printf("Clearing stale PRIMARY selection\n");
-            XtDisownSelection(box, primary, CurrentTime);
+            XtDisownSelection(box, primary_atom, CurrentTime);
           }
         }
       }
@@ -451,11 +481,104 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
     CheckBuffer();
 }
 
-void timeout(XtPointer p, XtIntervalId* i)
+// Reverse direction: check if the target selection (e.g. CLIPBOARD) changed
+// externally (e.g. browser Clipboard API).  If so, own the monitored selection
+// (e.g. PRIMARY) with the new value.  This makes mouseonly/Wayland mode
+// truly bidirectional without requiring a second instance.
+static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
+                            Atom *type, XtPointer value,
+                            unsigned long *received_length, int *format)
 {
-  if (options.own_selection && !options.wayland)
-    CheckBuffer();
-  else if (options.mouseonly) {
+  int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
+  if (*received_length > INT_MAX && options.debug)
+    printf("WARNING: reverse selection truncated from %lu to %d bytes\n",
+           *received_length, length);
+
+  if (*type == 0 || *type == XT_CONVERT_FAIL) {
+    if (client_data == SEL_TRY_UTF8) {
+      XtFree(value);
+      XtGetSelectionValue(w, *selection, XA_STRING,
+        ReverseReceived, SEL_FALLBACK_STR, CurrentTime);
+      return;
+    }
+    XtFree(value);
+    return;
+  }
+
+  // Skip if we own the target and the value matches what we last synced
+  // (compare against reverse_value which tracks raw UTF-8 from the target,
+  // not options.value which may be encoding-converted)
+  if (options.own_target && options.reverse_value &&
+      length == options.reverse_length &&
+      memcmp(options.reverse_value, value, length) == 0) {
+    XtFree(value);
+    return;
+  }
+
+  // Check if this is genuinely new compared to last reverse poll
+  int differs = (!options.reverse_value ||
+                 length != options.reverse_length ||
+                 memcmp(options.reverse_value, value, length));
+
+  if (length > 0 && differs) {
+    if (options.debug) {
+      printf("Reverse: target selection changed: ");
+      PrintValue((char*)value, length > 80 ? 80 : length);
+      printf("\n");
+    }
+    if (options.verbose) {
+      printf("reverse: ");
+      PrintValue((char*)value, length);
+      printf("\n");
+    }
+
+    // Update reverse tracking (zero old buffer before freeing to avoid
+    // leaving sensitive clipboard data as heap residue)
+    char *new_rv = XtMalloc(length);
+    if (!new_rv) { XtFree(value); return; }  // defense-in-depth (XtMalloc exits)
+    memcpy(new_rv, value, length);
+    if (options.reverse_value) {
+      memset(options.reverse_value, 0, options.reverse_length);
+      XtFree(options.reverse_value);
+    }
+    options.reverse_value = new_rv;
+    options.reverse_length = length;
+
+    // Convert encoding if needed (same as forward path in SelectionReceived)
+    char *store_value = (char*)value;
+    int store_length = length;
+    char *conv = NULL;
+    if (options.encoding && length > 0) {
+      int conv_len;
+      conv = ConvertEncoding("UTF-8", options.encoding,
+                             (char*)value, length, &conv_len);
+      if (conv) {
+        store_value = conv;
+        store_length = conv_len;
+      }
+    }
+
+    // Also update main value so we don't re-sync it back
+    ChangeValue(store_value, store_length);
+    if (conv) XtFree(conv);
+
+    // Own the monitored selection (e.g. PRIMARY) with this value
+    if (XtOwnSelection(box, options.selection, CurrentTime,
+        ConvertSelection, LoseSelection, NULL) == True) {
+      options.own_selection = 1;
+      if (options.debug)
+        printf("Reverse: owned monitored selection\n");
+    }
+  }
+
+  XtFree(value);
+}
+
+static int reverse_poll_counter = 0;
+
+static void timeout(XtPointer p, XtIntervalId* i)
+{
+  if (options.mouseonly) {
     // mouseonly: check pipe for mouse button release signal from libinput thread
     if (drain_mouse_pipe()) {
       if (options.debug)
@@ -474,6 +597,22 @@ void timeout(XtPointer p, XtIntervalId* i)
         SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
     }
+
+    // Reverse direction: periodically poll the target selection (e.g. CLIPBOARD)
+    // so external writes (browser Clipboard API, copy buttons) are picked up.
+    // Poll every ~500ms (every 10 ticks at 50ms interval).
+    reverse_poll_counter++;
+    if (reverse_poll_counter >= 10) {
+      reverse_poll_counter = 0;
+      if (!options.own_target) {
+        XtGetSelectionValue(box, options.target, utf8_atom,
+          ReverseReceived, SEL_TRY_UTF8,
+          CurrentTime);
+      }
+    }
+  } else if (options.own_selection && !options.wayland) {
+    // We own the selection — check if the cutbuffer changed
+    CheckBuffer();
   } else {
     int get_value = 1;
 
@@ -503,6 +642,10 @@ int main(int argc, char* argv[])
 {
   // Line-buffer stdout so output reaches the journal when running under systemd
   setlinebuf(stdout);
+
+  // Ignore SIGPIPE so a pipe write in the libinput thread does not
+  // kill the process if the read end is closed unexpectedly.
+  signal(SIGPIPE, SIG_IGN);
 
   // Pre-scan for --help/--version before Xt opens the X connection
   for (int i = 1; i < argc; i++) {
@@ -557,6 +700,10 @@ int main(int argc, char* argv[])
   else
     options.mouseonly = 0;
 
+  // Validate pause interval (negative int → huge unsigned long timeout)
+  if (options.pause < 1)
+    options.pause = 500;
+
   // Auto-detect Wayland session (cutbuffer does not work under XWayland)
   options.wayland = (getenv("WAYLAND_DISPLAY") != NULL) ? 1 : 0;
   if (options.wayland && (options.debug || options.verbose))
@@ -576,7 +723,7 @@ int main(int argc, char* argv[])
     switch (fork()) {
     case -1:
       fprintf (stderr, "could not fork, exiting\n");
-      return errno;
+      return EXIT_FAILURE;
     case 0:
       if (setsid() < 0)
         perror("setsid");
@@ -592,6 +739,8 @@ int main(int argc, char* argv[])
 
   options.value = NULL;
   options.length = 0;
+  options.reverse_value = NULL;
+  options.reverse_length = 0;
 
   options.own_selection = 0;
   options.own_target = 0;
@@ -599,15 +748,16 @@ int main(int argc, char* argv[])
   box = XtCreateManagedWidget("box", boxWidgetClass, top, NULL, 0);
   dpy = XtDisplay(top);
   utf8_atom = XInternAtom(dpy, "UTF8_STRING", False);
+  primary_atom = XInternAtom(dpy, "PRIMARY", False);
 
-  sel_atom = XInternAtom(dpy, options.selection_name, 0);
+  sel_atom = XInternAtom(dpy, options.selection_name, False);
   if (sel_atom == None) {
     fprintf(stderr, "autocutsel: could not intern atom for selection %s\n",
             options.selection_name);
     return 1;
   }
   options.selection = sel_atom;
-  options.target = XInternAtom(dpy, "CLIPBOARD", 0);
+  options.target = XInternAtom(dpy, "CLIPBOARD", False);
   if (options.target == None) {
     fprintf(stderr, "autocutsel: could not intern CLIPBOARD atom\n");
     return 1;
@@ -619,7 +769,7 @@ int main(int argc, char* argv[])
   if (options.wayland && sel_atom == options.target) {
     if (options.mouseonly) {
       // Read from PRIMARY (mouse selections), write to CLIPBOARD (already set)
-      sel_atom = XInternAtom(dpy, "PRIMARY", 0);
+      sel_atom = XInternAtom(dpy, "PRIMARY", False);
       if (sel_atom == None) {
         fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
         return 1;
@@ -627,7 +777,7 @@ int main(int argc, char* argv[])
       options.selection = sel_atom;
     } else {
       // Read from CLIPBOARD, write to PRIMARY
-      options.target = XInternAtom(dpy, "PRIMARY", 0);
+      options.target = XInternAtom(dpy, "PRIMARY", False);
       if (options.target == None) {
         fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
         return 1;
@@ -675,7 +825,7 @@ int main(int argc, char* argv[])
       fprintf(stderr, "autocutsel: selection name too long for lock atom\n");
       return 1;
     }
-    Atom lock_atom = XInternAtom(dpy, lock_name, 0);
+    Atom lock_atom = XInternAtom(dpy, lock_name, False);
 
     // Note: TOCTOU race between check and XSetSelectionOwner is inherent to X11.
     // The confirming XGetSelectionOwner below mitigates but does not eliminate it.
@@ -754,6 +904,9 @@ int main(int argc, char* argv[])
     }
   }
 
+  // Note: atexit handlers are only called by exit(), not _exit().
+  // Since Terminate() uses _exit() (async-signal-safe), this handler only
+  // runs if XtAppMainLoop somehow returns (which it normally does not).
   atexit(CleanupLibinput);
 
   /* Set up window properties so that the PID of the relevant autocutsel
@@ -778,7 +931,7 @@ int main(int argc, char* argv[])
   XInternAtoms(dpy, names, 6, 0, atoms);
 
   const char *window_name = "autocutsel";
-  unsigned long pid = (unsigned long)getpid();
+  long pid = (long)getpid();
 
   XChangeProperty(dpy, XtWindow(top), atoms[IDX_NET_WM_NAME], atoms[IDX_UTF8_STRING], 8, PropModeReplace, (const unsigned char*)window_name, (int)strlen(window_name));
   XChangeProperty(dpy, XtWindow(top), atoms[IDX_WM_NAME], atoms[IDX_STRING], 8, PropModeReplace, (const unsigned char*)window_name, (int)strlen(window_name));

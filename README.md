@@ -59,7 +59,7 @@ Packages for additional distributions (Arch, CentOS Stream, RockyLinux, SUSE SLF
 
 ## Features (beyond upstream)
 
-- **`-mouseonly`** — sync PRIMARY to CLIPBOARD only on mouse selection (ignores keyboard selections)
+- **`-mouseonly`** — sync PRIMARY to CLIPBOARD on mouse selection only, with automatic reverse sync (CLIPBOARD to PRIMARY) for browser copy buttons and application clipboard writes
 - **Wayland auto-detection** — direct selection sync when cutbuffer is unavailable
 - **`-encoding`** — charset conversion for VNC clients with legacy encodings
 - **Systemd user service** — template unit with sandboxing and per-instance configuration
@@ -132,14 +132,14 @@ autocutsel -selection PRIMARY &
 | `-pause MS` | Polling interval in milliseconds | `500` |
 | `-buttonup` | Only sync when mouse button is released (helps with LibreOffice and similar) | off |
 | `-fork` | Daemonize (run in background) | off |
-| `-mouseonly` | Sync PRIMARY→CLIPBOARD on mouse selection only (requires `-selection PRIMARY`, libinput, `input` group) | off |
+| `-mouseonly` | Bidirectional: mouse selection syncs PRIMARY→CLIPBOARD, external CLIPBOARD writes (browser copy, Ctrl+C) sync back to PRIMARY. Requires libinput, `input` group | off |
 | `-encoding CHARSET` | Convert between UTF-8 and the given charset (e.g. `WINDOWS-1252` for VNC) | off |
 | `-debug` | Print debug output | off |
 | `-verbose` | Report version and sync events | off |
 
 ### Mouse-only mode
 
-With `-mouseonly`, only mouse-based text selection is synced from PRIMARY to CLIPBOARD — keyboard selections (Shift+Arrow etc.) are ignored. This requires access to input devices via libinput:
+With `-mouseonly`, only mouse-based text selection is synced from PRIMARY to CLIPBOARD — keyboard selections (Shift+Arrow etc.) are ignored. Additionally, external CLIPBOARD writes (e.g. browser "copy" buttons using the Clipboard API, or Ctrl+C in applications) are automatically synced back to PRIMARY, making the clipboard content available for middle-click paste. This requires access to input devices via libinput:
 
 ```sh
 sudo usermod -aG input $USER   # re-login required

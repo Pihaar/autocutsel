@@ -141,7 +141,7 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
   if (*type == 0)
     printf("No length received\n");
   else if (*type == XA_INTEGER) {
-      printf("Length is %" PRIx32 "\n", (uint32_t)*(CARD32*)value);
+      printf("Length is %" PRIu32 "\n", (uint32_t)*(CARD32*)value);
   } else {
       char *name = XGetAtomName(d, *type);
       printf("Invalid type received: %s\n", name ? name : "?");
@@ -152,7 +152,7 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
   exit(0);
 }
 
-void OwnSelection(XtPointer p, XtIntervalId* i)
+static void OwnSelection(XtPointer p, XtIntervalId* i)
 {
   if (XtOwnSelection(box, options.selection, CurrentTime,
                      ConvertSelection, LoseSelection, NULL) == True) {
@@ -162,7 +162,7 @@ void OwnSelection(XtPointer p, XtIntervalId* i)
     printf("WARNING: Unable to own selection!\n");
 }
 
-void GetSelection(XtPointer p, XtIntervalId* i)
+static void GetSelection(XtPointer p, XtIntervalId* i)
 {
   Display* d = XtDisplay(box);
   Atom utf8_string = XInternAtom(d, "UTF8_STRING", False);
@@ -171,7 +171,7 @@ void GetSelection(XtPointer p, XtIntervalId* i)
     CurrentTime);
 }
 
-void GetTargets(XtPointer p, XtIntervalId* i)
+static void GetTargets(XtPointer p, XtIntervalId* i)
 {
   Display* d = XtDisplay(box);
   XtGetSelectionValue(box, sel_atom, XA_TARGETS(d),
@@ -179,7 +179,7 @@ void GetTargets(XtPointer p, XtIntervalId* i)
     CurrentTime);
 }
 
-void GetLength(XtPointer p, XtIntervalId* i)
+static void GetLength(XtPointer p, XtIntervalId* i)
 {
   Display* d = XtDisplay(box);
   XtGetSelectionValue(box, sel_atom, XA_LENGTH(d),
@@ -187,7 +187,7 @@ void GetLength(XtPointer p, XtIntervalId* i)
     CurrentTime);
 }
 
-void Exit(XtPointer p, XtIntervalId* i)
+static void Exit(XtPointer p, XtIntervalId* i)
 {
   exit(0);
 }
@@ -245,7 +245,7 @@ int main(int argc, char* argv[])
   box = XtCreateManagedWidget("box", boxWidgetClass, top, NULL, 0);
   dpy = XtDisplay(top);
 
-  sel_atom = XInternAtom(dpy, options.selection_name, 0);
+  sel_atom = XInternAtom(dpy, options.selection_name, False);
   if (sel_atom == None) {
     fprintf(stderr, "cutsel: could not intern atom for selection %s\n",
             options.selection_name);

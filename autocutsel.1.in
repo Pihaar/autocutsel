@@ -63,10 +63,20 @@ with applications like OpenOffice Writer that have trouble when the selection
 is requested before the mouse button is released.
 .TP
 .B \-mouseonly
+Bidirectional clipboard synchronization gated on mouse selection.
+.IP
+.B Forward direction:
 Synchronize PRIMARY to CLIPBOARD only when text is selected with the mouse.
 Keyboard-based selections (e.g. Shift+Arrow) are ignored. This prevents
 accidental clipboard overwrites in text editors where keyboard
 selection would otherwise replace the clipboard content.
+.IP
+.B Reverse direction:
+External CLIPBOARD writes (e.g. browser \(lqcopy\(rq buttons using the
+JavaScript Clipboard API, or Ctrl+C in applications) are automatically
+synced back to PRIMARY, making the content available for middle-click paste
+in terminals and other X11 applications. The reverse direction is polled
+every ~500ms.
 .IP
 Only a single instance is needed \(em unlike the traditional setup which
 requires two instances (one for CLIPBOARD, one for PRIMARY), the
