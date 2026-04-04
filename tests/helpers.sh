@@ -24,15 +24,7 @@ ensure_display() {
     Xvfb :99 -screen 0 640x480x8 -nolisten tcp &
     XVFB_PID=$!
     export DISPLAY=:99
-    # Wait for Xvfb to be ready (xkbcomp can take several seconds)
-    _wait=0
-    while [ "$_wait" -lt 10 ]; do
-      if timeout 2 "$CUTSEL" cut >/dev/null 2>&1; then
-        break
-      fi
-      sleep 1
-      _wait=$((_wait + 1))
-    done
+    sleep 5
     if kill -0 "$XVFB_PID" 2>/dev/null; then
       return 0
     fi
@@ -194,16 +186,11 @@ ensure_clean_display() {
     Xvfb ":$_xvfb_disp" -screen 0 640x480x8 -nolisten tcp &
     XVFB_PID=$!
     export DISPLAY=":$_xvfb_disp"
-    # Wait for Xvfb to be ready (xkbcomp can take several seconds).
-    # Use a cutbuffer read as round-trip test — requires working X connection.
-    _wait=0
-    while [ "$_wait" -lt 10 ]; do
-      if timeout 2 "$CUTSEL" cut >/dev/null 2>&1; then
-        break
-      fi
-      sleep 1
-      _wait=$((_wait + 1))
-    done
+    # Wait for Xvfb to fully initialize (xkbcomp takes 2-4 seconds in containers).
+    # A simple sleep is more reliable than X round-trips because the server
+    # accepts connections before xkbcomp finishes keyboard initialization,
+    # but cutbuffer operations may fail until initialization is complete.
+    sleep 5
     if kill -0 "$XVFB_PID" 2>/dev/null; then
       _clean_display=1
       return 0
