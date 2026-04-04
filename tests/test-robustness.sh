@@ -530,7 +530,7 @@ else
   _tests_failed=$((_tests_failed + 1))
   kill -9 "$_pid" 2>/dev/null
 fi
-wait 2>/dev/null
+wait "$_pid" 2>/dev/null
 
 # SIGHUP — clean exit
 "$AUTOCUTSEL" &
@@ -547,7 +547,7 @@ else
   _tests_failed=$((_tests_failed + 1))
   kill -9 "$_pid" 2>/dev/null
 fi
-wait 2>/dev/null
+wait "$_pid" 2>/dev/null
 
 # SIGINT — background processes in POSIX shells have SIGINT ignored by default.
 # autocutsel -fork calls TrapSignals() which registers a SIGINT handler.
@@ -572,7 +572,7 @@ else
   _tests_failed=$((_tests_failed + 1))
   echo "  FAIL: could not find forked child for SIGINT test"
 fi
-wait 2>/dev/null
+# Note: -fork child is detached (setsid), wait is a no-op for it
 
 sleep 1
 

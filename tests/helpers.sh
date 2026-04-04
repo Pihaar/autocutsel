@@ -167,6 +167,9 @@ cleanup_instances() {
   pkill -x "cutsel" 2>/dev/null || true
   pkill -x "xclip" 2>/dev/null || true
   sleep 1
+  # Force-kill any remaining instances (e.g., forked children via setsid)
+  pkill -9 -x "autocutsel" 2>/dev/null || true
+  sleep 0.5
   # Clear cutbuffer 0 so sync tests start with a known-empty state
   "$CUTSEL" cut "" 2>/dev/null || true
 }
