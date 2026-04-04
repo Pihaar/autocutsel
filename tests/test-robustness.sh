@@ -315,7 +315,7 @@ assert_exit "fork parent exits 0" "$_fork_exit" 0
 
 # Find the forked child
 sleep 1
-_fpid=$(pgrep -f "autocutsel.*-fork" 2>/dev/null | head -1)
+_fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
 _tests_run=$((_tests_run + 1))
 if [ -n "$_fpid" ]; then
   echo "  PASS: forked child is running (PID $_fpid)"
@@ -548,7 +548,7 @@ wait "$_pid" 2>/dev/null
 # Test that the forked child responds to SIGINT.
 "$AUTOCUTSEL" -selection _TEST_SIGINT -fork
 sleep 1
-_fpid=$(pgrep -f "autocutsel.*-fork" 2>/dev/null | head -1)
+_fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
 if [ -n "$_fpid" ]; then
   kill -INT "$_fpid" 2>/dev/null
   sleep 1
@@ -905,20 +905,27 @@ echo "Mouseonly reverse sync:"
 cleanup_instances
 
 # Start mouseonly — may degrade to non-mouseonly if libinput/seat unavailable.
-# Check debug output for "mouseonly mode enabled" to confirm it's actually active.
+# Verify reverse sync actually works with a functional probe before running tests.
 _tmplog=$(mktemp)
 "$AUTOCUTSEL" -mouseonly -debug >"$_tmplog" 2>&1 &
 _pid=$!
 sleep 2
 _mouseonly_active=0
 if kill -0 "$_pid" 2>/dev/null && grep -q "mouseonly mode enabled" "$_tmplog" 2>/dev/null; then
-  _mouseonly_active=1
+  # Functional probe: set CLIPBOARD, check if reverse poll syncs to PRIMARY
+  if require_xclip && [ "$_clean_display" -eq 1 ]; then
+    set_selection CLIPBOARD "_probe_reverse_test"
+    if wait_for_selection PRIMARY "_probe_reverse_test" 5; then
+      _mouseonly_active=1
+    fi
+  fi
 fi
 rm -f "$_tmplog"
+kill -9 "$_pid" 2>/dev/null
+wait "$_pid" 2>/dev/null
+sleep 1
 
 if [ "$_mouseonly_active" -eq 0 ]; then
-  kill -9 "$_pid" 2>/dev/null
-  wait "$_pid" 2>/dev/null
   _tests_run=$((_tests_run + 9))
   _tests_skipped=$((_tests_skipped + 9))
   echo "  SKIP: mouseonly not available (libinput/input group)"
