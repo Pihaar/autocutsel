@@ -23,19 +23,19 @@ test_mode() {
 }
 
 # Default CLIPBOARD mode
-test_mode "default CLIPBOARD mode"
+test_mode "default CLIPBOARD mode" -selection _TEST_M1
 
 # PRIMARY mode
-test_mode "PRIMARY mode" -selection PRIMARY
+test_mode "PRIMARY mode" -selection _TEST_M2
 
 # With -pause
-test_mode "custom pause" -pause 200
+test_mode "custom pause" -selection _TEST_M3 -pause 200
 
 # With -buttonup
-test_mode "buttonup mode" -buttonup
+test_mode "buttonup mode" -selection _TEST_M4 -buttonup
 
 # With -encoding
-test_mode "encoding mode" -encoding WINDOWS-1252
+test_mode "encoding mode" -selection _TEST_M5 -encoding WINDOWS-1252
 
 # mouseonly mode (may fail without libinput/input group access)
 _mouseonly_available=0
@@ -149,10 +149,10 @@ else
   echo "  SKIP: mouseonly + selection PRIMARY (mouseonly not available)"
 fi
 
-# buttonup + encoding
-test_mode "buttonup + encoding" -buttonup -encoding ISO8859-1
+# buttonup + encoding (use unique selection to avoid lock conflicts)
+test_mode "buttonup + encoding" -selection _TEST_BTNENC -buttonup -encoding ISO8859-1
 
 # pause + buttonup
-test_mode "pause + buttonup" -pause 200 -buttonup
+test_mode "pause + buttonup" -selection _TEST_PAUSEBTN -pause 200 -buttonup
 
 test_summary
