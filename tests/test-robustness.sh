@@ -17,9 +17,13 @@ echo "=== Robustness tests ==="
 
 echo "Cutbuffer parameter:"
 
-# Initialize cutbuffer 0 as sync barrier (ensures X server is accepting requests)
-"$CUTSEL" cut "init" >/dev/null 2>&1
-"$CUTSEL" cut >/dev/null 2>&1
+# Initialize all 8 cutbuffers (ensures X server creates CUT_BUFFER0..7 properties)
+_b=0
+while [ "$_b" -le 7 ]; do
+  "$CUTSEL" -cutbuffer "$_b" cut "init_${_b}" >/dev/null 2>&1
+  _b=$((_b + 1))
+done
+sleep 1
 
 # Write to cutbuffer 1 and read back
 "$CUTSEL" -cutbuffer 1 cut "buffer_one_value" >/dev/null 2>&1
@@ -70,12 +74,9 @@ echo "Large data:"
 
 # 10 KB through cutbuffer
 _large_10k=$(dd if=/dev/urandom bs=1024 count=8 2>/dev/null | base64 | tr -d '\n' | head -c 10240)
-_large_10k_len=$(printf '%s' "$_large_10k" | wc -c)
-echo "  (10KB data generated: $_large_10k_len bytes)"
-"$CUTSEL" cut "$_large_10k" 2>&1; echo "  (write exit: $?)"
+"$CUTSEL" cut "$_large_10k" >/dev/null 2>&1
 sleep 2
 run_capture 5 "$CUTSEL" cut
-echo "  (read got $(printf '%s' "$_output" | wc -c) bytes)"
 _first50=$(printf '%s' "$_large_10k" | head -c 50)
 _last50=$(printf '%s' "$_large_10k" | tail -c 50)
 assert_contains "10KB cutbuffer start matches" "$_output" "$_first50"
