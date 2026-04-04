@@ -431,9 +431,10 @@ assert_not_contains "empty write clears cutbuffer" "$_output" "something_first"
 echo ""
 echo "Newlines in cutbuffer:"
 
-run_capture 3 "$CUTSEL" cut "line1
+"$CUTSEL" cut "line1
 line2
-line3"
+line3" >/dev/null 2>&1
+sleep 0.5
 run_capture 3 "$CUTSEL" cut
 assert_contains "multiline: first line preserved" "$_output" "line1"
 assert_contains "multiline: second line preserved" "$_output" "line2"
