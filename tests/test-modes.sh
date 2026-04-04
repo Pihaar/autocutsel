@@ -135,6 +135,7 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   sleep 1
 
   # mouseonly + selection PRIMARY
+  cleanup_instances
   "$AUTOCUTSEL" -mouseonly -selection PRIMARY 2>/dev/null &
   _pid=$!
   sleep 1
