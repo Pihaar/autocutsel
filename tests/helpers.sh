@@ -21,7 +21,7 @@ ensure_display() {
     return 0
   fi
   if command -v Xvfb >/dev/null 2>&1; then
-    Xvfb :99 -screen 0 640x480x8 -nolisten tcp &
+    Xvfb :99 -screen 0 640x480x8 -nolisten tcp 2>/dev/null &
     XVFB_PID=$!
     export DISPLAY=:99
     sleep 5
@@ -183,7 +183,7 @@ ensure_clean_display() {
   if command -v Xvfb >/dev/null 2>&1; then
     # Pick a display number based on PID to avoid collisions
     _xvfb_disp=$(( ($$  % 100) + 100 ))
-    Xvfb ":$_xvfb_disp" -screen 0 640x480x8 -nolisten tcp &
+    Xvfb ":$_xvfb_disp" -screen 0 640x480x8 -nolisten tcp 2>/dev/null &
     XVFB_PID=$!
     export DISPLAY=":$_xvfb_disp"
     # Wait for Xvfb to fully initialize (xkbcomp takes 2-4 seconds in containers).

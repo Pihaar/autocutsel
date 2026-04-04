@@ -76,6 +76,7 @@ fi
 
 sleep 2
 _fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
+[ -z "$_fpid" ] && _fpid=$(pgrep -x lt-autocutsel 2>/dev/null | head -1)
 if [ -n "$_fpid" ]; then
   _tests_run=$((_tests_run + 1))
   _tests_passed=$((_tests_passed + 1))
@@ -119,6 +120,7 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   _fork_exit=$?
   sleep 2
   _fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
+[ -z "$_fpid" ] && _fpid=$(pgrep -x lt-autocutsel 2>/dev/null | head -1)
 
   _tests_run=$((_tests_run + 1))
   if [ -n "$_fpid" ] && [ "$_fork_exit" -eq 0 ]; then

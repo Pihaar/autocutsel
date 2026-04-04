@@ -17,13 +17,19 @@ echo "=== Robustness tests ==="
 
 echo "Cutbuffer parameter:"
 
+# Initialize cutbuffer 0 as sync barrier (ensures X server is accepting requests)
+"$CUTSEL" cut "init" >/dev/null 2>&1
+"$CUTSEL" cut >/dev/null 2>&1
+
 # Write to cutbuffer 1 and read back
-run_capture 3 "$CUTSEL" -cutbuffer 1 cut "buffer_one_value"
+"$CUTSEL" -cutbuffer 1 cut "buffer_one_value" >/dev/null 2>&1
+sleep 0.5
 run_capture 3 "$CUTSEL" -cutbuffer 1 cut
 assert_contains "cutbuffer 1 round-trip" "$_output" "buffer_one_value"
 
 # Cutbuffer 0 and 1 are independent
-run_capture 3 "$CUTSEL" -cutbuffer 0 cut "buffer_zero_value"
+"$CUTSEL" -cutbuffer 0 cut "buffer_zero_value" >/dev/null 2>&1
+sleep 0.5
 run_capture 3 "$CUTSEL" -cutbuffer 1 cut
 assert_contains "buffer 1 unchanged after writing buffer 0" "$_output" "buffer_one_value"
 assert_not_contains "buffer 1 has no buffer 0 value" "$_output" "buffer_zero_value"
@@ -31,7 +37,8 @@ run_capture 3 "$CUTSEL" -cutbuffer 0 cut
 assert_contains "buffer 0 has its own value" "$_output" "buffer_zero_value"
 
 # Write to cutbuffer 7 (maximum valid)
-run_capture 3 "$CUTSEL" -cutbuffer 7 cut "buffer_seven"
+"$CUTSEL" -cutbuffer 7 cut "buffer_seven" >/dev/null 2>&1
+sleep 0.5
 run_capture 3 "$CUTSEL" -cutbuffer 7 cut
 assert_contains "cutbuffer 7 round-trip" "$_output" "buffer_seven"
 
@@ -63,7 +70,8 @@ echo "Large data:"
 
 # 10 KB through cutbuffer
 _large_10k=$(dd if=/dev/urandom bs=1024 count=8 2>/dev/null | base64 | tr -d '\n' | head -c 10240)
-run_capture 5 "$CUTSEL" cut "$_large_10k"
+"$CUTSEL" cut "$_large_10k" >/dev/null 2>&1
+sleep 0.5
 run_capture 5 "$CUTSEL" cut
 _first50=$(printf '%s' "$_large_10k" | head -c 50)
 _last50=$(printf '%s' "$_large_10k" | tail -c 50)
@@ -72,7 +80,8 @@ assert_contains "10KB cutbuffer end matches" "$_output" "$_last50"
 
 # 100 KB through cutbuffer
 _large_100k=$(dd if=/dev/urandom bs=1024 count=80 2>/dev/null | base64 | tr -d '\n' | head -c 102400)
-run_capture 10 "$CUTSEL" cut "$_large_100k"
+"$CUTSEL" cut "$_large_100k" >/dev/null 2>&1
+sleep 0.5
 run_capture 10 "$CUTSEL" cut
 _first50=$(printf '%s' "$_large_100k" | head -c 50)
 _last50=$(printf '%s' "$_large_100k" | tail -c 50)
@@ -83,7 +92,8 @@ assert_contains "100KB cutbuffer end matches" "$_output" "$_last50"
 # max request size (~256KB default).  Verify cutsel doesn't crash and that
 # at least 100 KB survives the round-trip.
 _large_1m=$(dd if=/dev/urandom bs=1024 count=768 2>/dev/null | base64 | tr -d '\n' | head -c 1048576)
-run_capture 10 "$CUTSEL" cut "$_large_1m"
+"$CUTSEL" cut "$_large_1m" >/dev/null 2>&1
+sleep 1
 run_capture 10 "$CUTSEL" cut
 _actual_len=$(printf '%s' "$_output" | wc -c)
 _tests_run=$((_tests_run + 1))
@@ -316,6 +326,8 @@ assert_exit "fork parent exits 0" "$_fork_exit" 0
 # Find the forked child
 sleep 1
 _fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
+# Fallback: libtool wrapper may name the process lt-autocutsel
+[ -z "$_fpid" ] && _fpid=$(pgrep -x lt-autocutsel 2>/dev/null | head -1)
 _tests_run=$((_tests_run + 1))
 if [ -n "$_fpid" ]; then
   echo "  PASS: forked child is running (PID $_fpid)"
@@ -549,6 +561,8 @@ wait "$_pid" 2>/dev/null
 "$AUTOCUTSEL" -selection _TEST_SIGINT -fork
 sleep 1
 _fpid=$(pgrep -x autocutsel 2>/dev/null | head -1)
+# Fallback: libtool wrapper may name the process lt-autocutsel
+[ -z "$_fpid" ] && _fpid=$(pgrep -x lt-autocutsel 2>/dev/null | head -1)
 if [ -n "$_fpid" ]; then
   kill -INT "$_fpid" 2>/dev/null
   sleep 1
