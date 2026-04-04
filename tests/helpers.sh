@@ -215,7 +215,7 @@ set_selection() {
 # Usage: get_selection CLIPBOARD|PRIMARY
 # Sets: _sel_value
 get_selection() {
-  _sel_value=$(xclip -selection "$1" -o 2>/dev/null) || _sel_value=""
+  _sel_value=$(timeout 2 xclip -selection "$1" -o 2>/dev/null) || _sel_value=""
 }
 
 # Assert two strings are equal
@@ -268,11 +268,11 @@ wait_for_selection() {
   _wfs_timeout=${3:-10}
   _wfs_deadline=$(($(date +%s) + _wfs_timeout))
   while [ "$(date +%s)" -lt "$_wfs_deadline" ]; do
-    _sel_value=$(xclip -selection "$_wfs_sel" -o 2>/dev/null) || _sel_value=""
+    _sel_value=$(timeout 2 xclip -selection "$_wfs_sel" -o 2>/dev/null) || _sel_value=""
     [ "$_sel_value" = "$_wfs_expected" ] && return 0
     sleep 0.5
   done
-  _sel_value=$(xclip -selection "$_wfs_sel" -o 2>/dev/null) || _sel_value=""
+  _sel_value=$(timeout 2 xclip -selection "$_wfs_sel" -o 2>/dev/null) || _sel_value=""
   [ "$_sel_value" = "$_wfs_expected" ]
 }
 
