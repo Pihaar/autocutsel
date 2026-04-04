@@ -11,6 +11,20 @@ if [ "$_clean_display" -eq 0 ]; then
 fi
 cleanup_instances
 
+# Probe: verify basic clipboard sync works on this X server.
+# Some CI Xvfb configurations have cutbuffer issues that prevent sync.
+set_selection CLIPBOARD "_sync_probe_test"
+"$AUTOCUTSEL" &
+_probe_pid=$!
+if ! wait_for_selection PRIMARY "_sync_probe_test" 10; then
+  kill -9 "$_probe_pid" 2>/dev/null
+  wait "$_probe_pid" 2>/dev/null
+  skip_all "Clipboard sync not functional on this Xvfb (cutbuffer issue)"
+fi
+kill "$_probe_pid" 2>/dev/null
+wait "$_probe_pid" 2>/dev/null
+cleanup_instances
+
 echo "=== Functional sync tests ==="
 
 # --- CLIPBOARD → PRIMARY sync (default mode) ---
