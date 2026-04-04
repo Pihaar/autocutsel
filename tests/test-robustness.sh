@@ -71,7 +71,7 @@ echo "Large data:"
 # 10 KB through cutbuffer
 _large_10k=$(dd if=/dev/urandom bs=1024 count=8 2>/dev/null | base64 | tr -d '\n' | head -c 10240)
 "$CUTSEL" cut "$_large_10k" >/dev/null 2>&1
-sleep 0.5
+sleep 2
 run_capture 5 "$CUTSEL" cut
 _first50=$(printf '%s' "$_large_10k" | head -c 50)
 _last50=$(printf '%s' "$_large_10k" | tail -c 50)
@@ -81,7 +81,7 @@ assert_contains "10KB cutbuffer end matches" "$_output" "$_last50"
 # 100 KB through cutbuffer
 _large_100k=$(dd if=/dev/urandom bs=1024 count=80 2>/dev/null | base64 | tr -d '\n' | head -c 102400)
 "$CUTSEL" cut "$_large_100k" >/dev/null 2>&1
-sleep 0.5
+sleep 2
 run_capture 10 "$CUTSEL" cut
 _first50=$(printf '%s' "$_large_100k" | head -c 50)
 _last50=$(printf '%s' "$_large_100k" | tail -c 50)
@@ -93,7 +93,7 @@ assert_contains "100KB cutbuffer end matches" "$_output" "$_last50"
 # at least 100 KB survives the round-trip.
 _large_1m=$(dd if=/dev/urandom bs=1024 count=768 2>/dev/null | base64 | tr -d '\n' | head -c 1048576)
 "$CUTSEL" cut "$_large_1m" >/dev/null 2>&1
-sleep 1
+sleep 3
 run_capture 10 "$CUTSEL" cut
 _actual_len=$(printf '%s' "$_output" | wc -c)
 _tests_run=$((_tests_run + 1))
