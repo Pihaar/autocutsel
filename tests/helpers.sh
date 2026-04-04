@@ -166,8 +166,11 @@ cleanup_instances() {
   pkill -9 -x "autocutsel" 2>/dev/null || true
   pkill -9 -x "cutsel" 2>/dev/null || true
   pkill -9 -x "xclip" 2>/dev/null || true
-  # Give the X server time to notice client death and release selection locks
-  sleep 2
+  # Force X server to process client death and release selection locks:
+  # A round-trip X request ensures DestroyNotify is processed.
+  sleep 1
+  timeout 2 xclip -selection CLIPBOARD -o >/dev/null 2>&1 || true
+  sleep 1
   # Clear cutbuffer 0 so sync tests start with a known-empty state
   "$CUTSEL" cut "" 2>/dev/null || true
 }
