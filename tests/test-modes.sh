@@ -17,9 +17,9 @@ test_mode() {
   _pid=$!
   sleep 1
   assert_running "$_desc starts" "$_pid"
-  kill "$_pid" 2>/dev/null
+  kill -9 "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null
-  sleep 1  # wait for selection ownership to be released
+  sleep 2  # wait for X server to release selection lock after SIGKILL
 }
 
 # Default CLIPBOARD mode
@@ -47,9 +47,9 @@ if kill -0 "$_pid" 2>/dev/null; then
   _tests_run=$((_tests_run + 1))
   _tests_passed=$((_tests_passed + 1))
   echo "  PASS: mouseonly mode starts"
-  kill "$_pid" 2>/dev/null
+  kill -9 "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null
-  sleep 1
+  sleep 2
 else
   _tests_run=$((_tests_run + 1))
   _tests_skipped=$((_tests_skipped + 1))
@@ -126,8 +126,8 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   if [ -n "$_fpid" ] && [ "$_fork_exit" -eq 0 ]; then
     _tests_passed=$((_tests_passed + 1))
     echo "  PASS: mouseonly + fork starts"
-    kill $_fpid 2>/dev/null
-    sleep 1
+    kill -9 $_fpid 2>/dev/null
+    sleep 2
   else
     _tests_failed=$((_tests_failed + 1))
     echo "  FAIL: mouseonly + fork (exit=$_fork_exit, pid=$_fpid)"
@@ -139,9 +139,9 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   _pid=$!
   sleep 1
   assert_running "mouseonly + selection PRIMARY starts" "$_pid"
-  kill "$_pid" 2>/dev/null
+  kill -9 "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null
-  sleep 1
+  sleep 2
 else
   _tests_run=$((_tests_run + 2))
   _tests_skipped=$((_tests_skipped + 2))
