@@ -904,11 +904,21 @@ echo "Mouseonly reverse sync:"
 
 cleanup_instances
 
-# Start mouseonly — may not be available without libinput/input group
-"$AUTOCUTSEL" -mouseonly 2>/dev/null &
+# Start mouseonly — may degrade to non-mouseonly if libinput/seat unavailable.
+# Check debug output for "mouseonly mode enabled" to confirm it's actually active.
+_tmplog=$(mktemp)
+"$AUTOCUTSEL" -mouseonly -debug >"$_tmplog" 2>&1 &
 _pid=$!
-sleep 1
-if ! kill -0 "$_pid" 2>/dev/null; then
+sleep 2
+_mouseonly_active=0
+if kill -0 "$_pid" 2>/dev/null && grep -q "mouseonly mode enabled" "$_tmplog" 2>/dev/null; then
+  _mouseonly_active=1
+fi
+rm -f "$_tmplog"
+
+if [ "$_mouseonly_active" -eq 0 ]; then
+  kill -9 "$_pid" 2>/dev/null
+  wait "$_pid" 2>/dev/null
   _tests_run=$((_tests_run + 9))
   _tests_skipped=$((_tests_skipped + 9))
   echo "  SKIP: mouseonly not available (libinput/input group)"
