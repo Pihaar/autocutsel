@@ -24,8 +24,10 @@ jobs:
           echo "Version: $ver"
 
       - name: Verify packaging versions match
+        env:
+          VER: ${{ steps.get.outputs.version }}
         run: |
-          ver="${{ steps.get.outputs.version }}"
+          ver="${VER}"
           fail=0
           check() {
             if [ "$2" != "$ver" ]; then
@@ -50,7 +52,8 @@ jobs:
           dnf install -y \
             gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
-            libinput-devel systemd-devel
+            libinput-devel systemd-devel \
+            xorg-x11-server-Xvfb xclip
 
       - uses: actions/checkout@v6
 
@@ -76,7 +79,8 @@ jobs:
           zypper --non-interactive install \
             gcc make gawk autoconf automake libtool pkg-config file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
-            libinput-devel libudev-devel
+            libinput-devel libudev-devel \
+            xorg-x11-server-Xvfb xclip
 
       - uses: actions/checkout@v6
 
@@ -103,7 +107,8 @@ jobs:
           apt-get install -y \
             gcc make autoconf automake libtool pkg-config \
             libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
-            libinput-dev libudev-dev
+            libinput-dev libudev-dev \
+            xvfb xclip
 
       - uses: actions/checkout@v6
 
@@ -130,7 +135,8 @@ jobs:
           apt-get install -y \
             gcc make autoconf automake libtool pkg-config \
             libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
-            libinput-dev libudev-dev
+            libinput-dev libudev-dev \
+            xvfb xclip
 
       - uses: actions/checkout@v6
 
@@ -156,7 +162,8 @@ jobs:
           pacman -Syu --noconfirm \
             autoconf automake libtool pkg-config \
             libx11 libxt libxmu libxaw libxext \
-            libinput systemd
+            libinput systemd \
+            xorg-server-xvfb xclip
 
       - uses: actions/checkout@v6
 
@@ -182,7 +189,8 @@ jobs:
           dnf install -y \
             gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
-            libinput-devel systemd-devel libasan libubsan
+            libinput-devel systemd-devel \
+            xorg-x11-server-Xvfb xclip libasan libubsan
 
       - uses: actions/checkout@v6
 
@@ -197,6 +205,33 @@ jobs:
 
       - name: Test
         run: make check || { cat test-suite.log; exit 1; }
+
+  valgrind:
+    name: Valgrind (Fedora)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc make autoconf automake libtool file valgrind \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libinput-devel systemd-devel \
+            xorg-x11-server-Xvfb xclip
+
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure
+        run: ./configure CFLAGS="-g -O1 -U_FORTIFY_SOURCE"
+
+      - name: Build
+        run: make
+
+      - name: Valgrind unit tests
+        run: valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=definite ./tests/test-unit
 
   rpm-fedora:
     name: RPM (Fedora)
@@ -214,8 +249,10 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Create source tarball
+        env:
+          VER: ${{ needs.version.outputs.version }}
         run: |
-          ver="${{ needs.version.outputs.version }}"
+          ver="${VER}"
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
           tar czf "$topdir/SOURCES/autocutsel-${ver}.tar.gz" \
@@ -242,13 +279,16 @@ jobs:
           zypper --non-interactive install \
             gcc make gawk autoconf automake libtool rpm-build pkg-config \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
-            libinput-devel libudev-devel
+            libinput-devel libudev-devel \
+            xorg-x11-server-Xvfb xclip
 
       - uses: actions/checkout@v6
 
       - name: Create source tarball
+        env:
+          VER: ${{ needs.version.outputs.version }}
         run: |
-          ver="${{ needs.version.outputs.version }}"
+          ver="${VER}"
           topdir=$(rpm --eval '%{_topdir}')
           mkdir -p "$topdir/SOURCES"
           tar czf "$topdir/SOURCES/autocutsel-${ver}.tar.gz" \
@@ -285,6 +325,7 @@ jobs:
             gcc make autoconf automake libtool pkg-config \
             libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
             libinput-dev libudev-dev \
+            xvfb xclip \
             debhelper fakeroot dpkg-dev
 
       - uses: actions/checkout@v6
@@ -312,7 +353,8 @@ jobs:
           pacman -Syu --noconfirm \
             autoconf automake libtool pkg-config \
             libx11 libxt libxmu libxaw libxext \
-            libinput systemd git
+            libinput systemd \
+            xorg-server-xvfb xclip git
 
       - name: Create build user
         run: |
@@ -322,8 +364,10 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Create source tarball
+        env:
+          VER: ${{ needs.version.outputs.version }}
         run: |
-          ver="${{ needs.version.outputs.version }}"
+          ver="${VER}"
           tar czf "autocutsel-${ver}.tar.gz" \
             --transform "s,^,autocutsel-${ver}/," \
             --exclude=.git *

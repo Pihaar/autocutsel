@@ -56,18 +56,6 @@ static Atom utf8_atom;
 static Atom primary_atom;  // cached PRIMARY atom for stale-holder clear
 static int mouse_pipe[2] = {-1, -1};
 
-// Check pipe for mouse release signal from libinput thread (non-blocking)
-static int drain_mouse_pipe(void)
-{
-  if (mouse_pipe[0] < 0)
-    return 0;
-  char buf;
-  int got = 0;
-  while (read(mouse_pipe[0], &buf, 1) > 0)
-    got = 1;
-  return got;
-}
-
 // Dedicated thread for libinput event processing
 static void *libinput_thread(void *arg)
 {
@@ -227,13 +215,6 @@ static void LosePrimaryTemp(Widget w, Atom *selection)
 
 // Returns true if value (or length) is different
 // than current ones.
-static int ValueDiffers(char *value, int length)
-{
-  return (!options.value ||
-    length != options.length ||
-    memcmp(options.value, value, length));
-}
-
 // Update the current value
 static void ChangeValue(char *value, int length)
 {
@@ -246,7 +227,7 @@ static void ChangeValue(char *value, int length)
   }
 
   if (options.value) {
-    memset(options.value, 0, options.length);
+    secure_zero(options.value, options.length);
     XtFree(options.value);
   }
 
@@ -424,16 +405,16 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
         if (XtOwnSelection(box, options.target, CurrentTime,
             ConvertSelection, LoseTarget, NULL) == True) {
           options.own_target = 1;
-          // Update reverse tracking so the reverse poll doesn't see our
-          // own forward-sync value as an "external change".
-          // Zero old buffer to avoid leaving sensitive data as heap residue.
+          // Update reverse tracking with the raw UTF-8 value (pre-encoding),
+          // NOT options.value (which may be VNC-encoded). ReverseReceived
+          // compares against raw UTF-8 from the target selection.
           if (options.reverse_value) {
-            memset(options.reverse_value, 0, options.reverse_length);
+            secure_zero(options.reverse_value, options.reverse_length);
             XtFree(options.reverse_value);
           }
-          options.reverse_value = XtMalloc(options.length);
-          memcpy(options.reverse_value, options.value, options.length);
-          options.reverse_length = options.length;
+          options.reverse_value = XtMalloc(length);
+          memcpy(options.reverse_value, (char*)value, length);
+          options.reverse_length = length;
         } else {
           printf("WARNING: Unable to own target selection!\n");
         }
@@ -538,7 +519,7 @@ static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
     if (!new_rv) { XtFree(value); return; }  // defense-in-depth (XtMalloc exits)
     memcpy(new_rv, value, length);
     if (options.reverse_value) {
-      memset(options.reverse_value, 0, options.reverse_length);
+      secure_zero(options.reverse_value, options.reverse_length);
       XtFree(options.reverse_value);
     }
     options.reverse_value = new_rv;
@@ -559,28 +540,40 @@ static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
     }
 
     // Also update main value so we don't re-sync it back
-    ChangeValue(store_value, store_length);
-    if (conv) XtFree(conv);
+    if (store_length > 0) {
+      ChangeValue(store_value, store_length);
 
-    // Own the monitored selection (e.g. PRIMARY) with this value
-    if (XtOwnSelection(box, options.selection, CurrentTime,
-        ConvertSelection, LoseSelection, NULL) == True) {
-      options.own_selection = 1;
-      if (options.debug)
-        printf("Reverse: owned monitored selection\n");
+      // Own the monitored selection (e.g. PRIMARY) with this value
+      if (XtOwnSelection(box, options.selection, CurrentTime,
+          ConvertSelection, LoseSelection, NULL) == True) {
+        options.own_selection = 1;
+        if (options.debug)
+          printf("Reverse: owned monitored selection\n");
+      }
     }
+    if (conv) XtFree(conv);
   }
 
   XtFree(value);
 }
 
-static int reverse_poll_counter = 0;
+// Separate timer for reverse direction polling (CLIPBOARD→PRIMARY).
+// Fires every 500ms independently of the forward poll timer.
+// Used in both mouseonly and Wayland modes.
+static void reverse_timeout(XtPointer p, XtIntervalId* i)
+{
+  if (!options.own_target) {
+    XtGetSelectionValue(box, options.target, utf8_atom,
+      ReverseReceived, SEL_TRY_UTF8, CurrentTime);
+  }
+  XtAppAddTimeOut(context, 500, reverse_timeout, 0);
+}
 
 static void timeout(XtPointer p, XtIntervalId* i)
 {
   if (options.mouseonly) {
     // mouseonly: check pipe for mouse button release signal from libinput thread
-    if (drain_mouse_pipe()) {
+    if (drain_pipe(mouse_pipe[0])) {
       if (options.debug)
         printf("mouseonly: mouse release detected, reading selection\n");
       atomic_store(&options.mouse_grace_ticks, 1);
@@ -596,19 +589,6 @@ static void timeout(XtPointer p, XtIntervalId* i)
       XtGetSelectionValue(box, sel_atom, utf8_atom,
         SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
-    }
-
-    // Reverse direction: periodically poll the target selection (e.g. CLIPBOARD)
-    // so external writes (browser Clipboard API, copy buttons) are picked up.
-    // Poll every ~500ms (every 10 ticks at 50ms interval).
-    reverse_poll_counter++;
-    if (reverse_poll_counter >= 10) {
-      reverse_poll_counter = 0;
-      if (!options.own_target) {
-        XtGetSelectionValue(box, options.target, utf8_atom,
-          ReverseReceived, SEL_TRY_UTF8,
-          CurrentTime);
-      }
     }
   } else if (options.own_selection && !options.wayland) {
     // We own the selection — check if the cutbuffer changed
@@ -719,6 +699,10 @@ int main(int argc, char* argv[])
   else
     options.fork = 0;
 
+  // Install signal handlers for clean shutdown in all modes (not just fork).
+  // This ensures li_thread_running is set to 0 on SIGTERM/SIGINT/SIGHUP.
+  TrapSignals();
+
   if (options.fork) {
     switch (fork()) {
     case -1:
@@ -729,7 +713,6 @@ int main(int argc, char* argv[])
         perror("setsid");
       if (chdir("/") < 0)
         perror("chdir");
-      TrapSignals();
       CloseStdFds();
       break;
     default:
@@ -769,19 +752,11 @@ int main(int argc, char* argv[])
   if (options.wayland && sel_atom == options.target) {
     if (options.mouseonly) {
       // Read from PRIMARY (mouse selections), write to CLIPBOARD (already set)
-      sel_atom = XInternAtom(dpy, "PRIMARY", False);
-      if (sel_atom == None) {
-        fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
-        return 1;
-      }
+      sel_atom = primary_atom;
       options.selection = sel_atom;
     } else {
       // Read from CLIPBOARD, write to PRIMARY
-      options.target = XInternAtom(dpy, "PRIMARY", False);
-      if (options.target == None) {
-        fprintf(stderr, "autocutsel: could not intern PRIMARY atom\n");
-        return 1;
-      }
+      options.target = primary_atom;
     }
   }
 
@@ -809,10 +784,6 @@ int main(int argc, char* argv[])
     XFree(xbuf);
   }
 
-  {
-    unsigned long interval = options.mouseonly ? 50 : options.pause;
-    XtAppAddTimeOut(context, interval, timeout, 0);
-  }
   XtRealizeWidget(top);
   XUnmapWindow(XtDisplay(top), XtWindow(top));
 
@@ -908,6 +879,16 @@ int main(int argc, char* argv[])
   // Since Terminate() uses _exit() (async-signal-safe), this handler only
   // runs if XtAppMainLoop somehow returns (which it normally does not).
   atexit(CleanupLibinput);
+
+  // Register timers AFTER libinput setup (mouseonly may have been disabled
+  // if libinput init failed, affecting which timers are needed).
+  {
+    unsigned long interval = options.mouseonly ? 50 : options.pause;
+    XtAppAddTimeOut(context, interval, timeout, 0);
+  }
+  if (options.mouseonly || options.wayland) {
+    XtAppAddTimeOut(context, 500, reverse_timeout, 0);
+  }
 
   /* Set up window properties so that the PID of the relevant autocutsel
    * process is known and autocutsel windows can be identified as such when

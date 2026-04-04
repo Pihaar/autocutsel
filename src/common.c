@@ -65,6 +65,31 @@ void PrintValue(char *value, int length)
 }
 
 
+// Returns true if value (or length) is different than current stored value.
+int ValueDiffers(char *value, int length)
+{
+  return (!options.value ||
+    length != options.length ||
+    memcmp(options.value, value, length));
+}
+
+// Non-blocking drain of a pipe file descriptor.
+// Returns 1 if any data was read, 0 otherwise.
+int drain_pipe(int fd)
+{
+  if (fd < 0)
+    return 0;
+  char buf;
+  int got = 0;
+  while (1) {
+    ssize_t n = read(fd, &buf, 1);
+    if (n > 0) { got = 1; continue; }
+    if (n < 0 && errno == EINTR) continue;
+    break;
+  }
+  return got;
+}
+
 
 // Convert between encodings using iconv.
 // Returns a newly XtMalloc'd buffer (caller must XtFree) and sets *out_len.

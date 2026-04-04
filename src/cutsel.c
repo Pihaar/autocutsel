@@ -112,15 +112,19 @@ static void TargetsReceived(Widget w, XtPointer client_data, Atom *selection,
   unsigned long i;
   Atom *atoms;
 
-  if (*type == 0)
+  if (*type == 0 || *type == XT_CONVERT_FAIL)
     printf("No target received\n");
   else if (*type == XA_ATOM) {
-    atoms = (Atom*)value;
-    printf("%lu targets (%i bits each):\n", *length, *format);
-    for (i=0; i<*length; i++) {
-      char *name = XGetAtomName(d, atoms[i]);
-      printf("%s\n", name ? name : "?");
-      if (name) XFree(name);
+    if (!value) {
+      printf("No target data received\n");
+    } else {
+      atoms = (Atom*)value;
+      printf("%lu targets (%i bits each):\n", *length, *format);
+      for (i=0; i<*length; i++) {
+        char *name = XGetAtomName(d, atoms[i]);
+        printf("%s\n", name ? name : "?");
+        if (name) XFree(name);
+      }
     }
   } else {
     char *name = XGetAtomName(d, *type);
@@ -138,10 +142,14 @@ static void LengthReceived(Widget w, XtPointer client_data, Atom *selection,
 {
   Display* d = XtDisplay(w);
 
-  if (*type == 0)
+  if (*type == 0 || *type == XT_CONVERT_FAIL)
     printf("No length received\n");
   else if (*type == XA_INTEGER) {
+    if (!value) {
+      printf("No length data received\n");
+    } else {
       printf("Length is %" PRIu32 "\n", (uint32_t)*(CARD32*)value);
+    }
   } else {
       char *name = XGetAtomName(d, *type);
       printf("Invalid type received: %s\n", name ? name : "?");
@@ -261,9 +269,14 @@ int main(int argc, char* argv[])
 
   if (strcmp(argv[1], "cut") == 0) {
     if (argc > 2) {
+      size_t arglen = strlen(argv[2]);
+      if (arglen > INT_MAX) {
+        fprintf(stderr, "cutsel: value too large (%zu bytes)\n", arglen);
+        return 1;
+      }
       XStoreBuffer(dpy,
        argv[2],
-       strlen(argv[2]),
+       (int)arglen,
        buffer);
       XtAppAddTimeOut(context, 10, Exit, 0);
     } else {
@@ -277,8 +290,13 @@ int main(int argc, char* argv[])
     }
   } else if (strcmp(argv[1], "sel") == 0) {
     if (argc > 2) {
+      size_t sellen = strlen(argv[2]);
+      if (sellen > INT_MAX) {
+        fprintf(stderr, "cutsel: value too large (%zu bytes)\n", sellen);
+        return 1;
+      }
       options.value = argv[2];
-      options.length = strlen(argv[2]);
+      options.length = (int)sellen;
       XtAppAddTimeOut(context, 10, OwnSelection, 0);
     } else {
       XtAppAddTimeOut(context, 10, GetSelection, 0);

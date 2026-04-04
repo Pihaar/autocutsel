@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-commit hook: static checks for autocutsel
+# Install: git config core.hooksPath .githooks
+set -e
+
+# C syntax check (fast, no linking)
+for f in src/*.c; do
+  gcc -fsyntax-only -include config.h -I. "$f" 2>/dev/null || {
+    echo "FAIL: syntax error in $f"
+    exit 1
+  }
+done
+
+# Shell script syntax check
+for f in tests/*.sh bootstrap; do
+  [ -f "$f" ] && sh -n "$f" || {
+    echo "FAIL: syntax error in $f"
+    exit 1
+  }
+done
+
+# Shellcheck (if available)
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck -s sh -e SC2039,SC3045 tests/*.sh || {
+    echo "FAIL: shellcheck found issues"
+    exit 1
+  }
+fi

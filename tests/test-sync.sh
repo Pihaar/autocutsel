@@ -131,8 +131,8 @@ cleanup_instances
 _pid=$!
 sleep 1
 if ! kill -0 "$_pid" 2>/dev/null; then
-  _tests_run=$((_tests_run + 1))
-  _tests_skipped=$((_tests_skipped + 1))
+  _tests_run=$((_tests_run + 14))
+  _tests_skipped=$((_tests_skipped + 14))
   echo "  SKIP: mouseonly not available (libinput/input group)"
   wait "$_pid" 2>/dev/null
 else
@@ -297,5 +297,56 @@ assert_equal "PRIMARY does not overwrite CLIPBOARD in default mode" "$_sel_value
 
 kill "$_pid" 2>/dev/null
 wait "$_pid" 2>/dev/null
+
+# --- Wayland non-mouseonly: bidirectional sync via reverse_timeout ---
+
+echo ""
+echo "Wayland non-mouseonly reverse sync:"
+
+cleanup_instances
+
+# Simulate Wayland by setting WAYLAND_DISPLAY (TESTS_ENVIRONMENT unsets it,
+# but we re-export here for this specific test — same pattern as test-wayland.sh)
+export WAYLAND_DISPLAY=wayland-0
+
+"$AUTOCUTSEL" -selection PRIMARY 2>/dev/null &
+_pid=$!
+sleep 1
+
+if ! kill -0 "$_pid" 2>/dev/null; then
+  _tests_run=$((_tests_run + 4))
+  _tests_skipped=$((_tests_skipped + 4))
+  echo "  SKIP: autocutsel failed to start in Wayland mode"
+  wait "$_pid" 2>/dev/null
+else
+  # Forward direction: PRIMARY → CLIPBOARD (monitored selection changes → own target)
+  set_selection PRIMARY "wayland-forward-val"
+  wait_for_selection CLIPBOARD "wayland-forward-val" 10
+  get_selection CLIPBOARD
+  assert_equal "Wayland forward: PRIMARY→CLIPBOARD" "$_sel_value" "wayland-forward-val"
+
+  # Reverse direction: external CLIPBOARD write → PRIMARY (via reverse_timeout)
+  set_selection CLIPBOARD "wayland-reverse-val"
+  wait_for_selection PRIMARY "wayland-reverse-val" 10
+  get_selection PRIMARY
+  assert_equal "Wayland reverse: CLIPBOARD→PRIMARY" "$_sel_value" "wayland-reverse-val"
+
+  # Update reverse — propagates
+  set_selection CLIPBOARD "wayland-reverse-updated"
+  wait_for_selection PRIMARY "wayland-reverse-updated" 10
+  get_selection PRIMARY
+  assert_equal "Wayland reverse update propagates" "$_sel_value" "wayland-reverse-updated"
+
+  # No ping-pong: after reverse sync, CLIPBOARD should still hold the same value
+  sleep 2
+  get_selection CLIPBOARD
+  assert_equal "Wayland no ping-pong after reverse" "$_sel_value" "wayland-reverse-updated"
+
+  kill "$_pid" 2>/dev/null
+  wait "$_pid" 2>/dev/null
+fi
+
+# Restore: unset WAYLAND_DISPLAY for subsequent tests
+unset WAYLAND_DISPLAY
 
 test_summary

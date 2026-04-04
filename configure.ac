@@ -48,6 +48,7 @@ AC_SUBST([AUTOCUTSEL_LIBS])
 
 dnl Checks for library functions.
 AC_FUNC_SETPGRP
+AC_CHECK_FUNCS([explicit_bzero])
 
 dnl Warnings
 AC_MSG_CHECKING([whether to enable -Wall])
@@ -56,6 +57,34 @@ if test -n "$GCC"; then
   CFLAGS="$CFLAGS -Wall -Wno-unused-parameter"
 else
   AC_MSG_RESULT(no)
+fi
+
+dnl Hardening flags (checked individually for compiler/linker support)
+if test -n "$GCC"; then
+  for hflag in -fstack-protector-strong -fPIE; do
+    AC_MSG_CHECKING([whether $CC supports $hflag])
+    saved_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS $hflag"
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+      [AC_MSG_RESULT([yes])],
+      [AC_MSG_RESULT([no]); CFLAGS="$saved_CFLAGS"])
+  done
+
+  AC_MSG_CHECKING([whether _FORTIFY_SOURCE=2 works])
+  saved_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -Werror"
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+    [AC_MSG_RESULT([yes]); CFLAGS="$saved_CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"],
+    [AC_MSG_RESULT([no]); CFLAGS="$saved_CFLAGS"])
+
+  for hflag in -pie -Wl,-z,relro -Wl,-z,now; do
+    AC_MSG_CHECKING([whether $CC supports $hflag])
+    saved_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS $hflag"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM()],
+      [AC_MSG_RESULT([yes])],
+      [AC_MSG_RESULT([no]); LDFLAGS="$saved_LDFLAGS"])
+  done
 fi
 
 AC_CONFIG_FILES([Makefile autocutsel.1 cutsel.1])

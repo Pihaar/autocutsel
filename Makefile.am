@@ -8,9 +8,14 @@ cutsel_SOURCES = src/cutsel.c src/common.c
 
 noinst_HEADERS = src/common.h
 
+check_PROGRAMS = tests/test-unit
+tests_test_unit_SOURCES = tests/test-unit.c src/common.c
+tests_test_unit_CPPFLAGS = -I$(srcdir)/src
+
 man1_MANS = autocutsel.1 cutsel.1
 
-TESTS = tests/test-no-display.sh \
+TESTS = tests/test-unit \
+	tests/test-no-display.sh \
 	tests/test-cli.sh \
 	tests/test-modes.sh \
 	tests/test-wayland.sh \
@@ -40,6 +45,7 @@ autocutselargs_DATA = contrib/systemd/mouseonly.args \
 EXTRA_DIST = AUTHORS COPYING ChangeLog README.md autocutsel.1.in cutsel.1.in \
 	bootstrap \
 	tests/helpers.sh \
+	tests/test-unit.c \
 	tests/test-no-display.sh \
 	tests/test-cli.sh \
 	tests/test-modes.sh \

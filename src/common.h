@@ -94,6 +94,18 @@ typedef struct {
   int     reverse_length;
 } OptionsRec;
 
+// Secure memory zeroing: explicit_bzero is guaranteed not to be optimized away.
+// Fallback uses a volatile pointer loop to prevent dead-store elimination.
+#ifdef HAVE_EXPLICIT_BZERO
+#define secure_zero(ptr, len) explicit_bzero(ptr, len)
+#else
+static inline void secure_zero_fallback(void *ptr, size_t len) {
+  volatile unsigned char *p = (volatile unsigned char *)ptr;
+  while (len--) *p++ = 0;
+}
+#define secure_zero(ptr, len) secure_zero_fallback(ptr, len)
+#endif
+
 extern Widget box;
 extern Display* dpy;
 extern XtAppContext context;
@@ -108,6 +120,8 @@ extern OptionsRec options;
 void PrintValue(char *value, int length);
 char *ConvertEncoding(const char *from_enc, const char *to_enc,
                       const char *input, int in_len, int *out_len);
+int ValueDiffers(char *value, int length);
+int drain_pipe(int fd);
 Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
                                 Atom *type, XtPointer *value,
                                 unsigned long *length, int *format);

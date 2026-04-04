@@ -456,8 +456,33 @@ assert_contains "autocutsel -cutbuffer -1 rejected" "$_output" "must be 0-7"
 echo ""
 echo "Invalid pause values:"
 
-# -pause 0 should start but not spin (test it doesn't crash)
+# -pause 0 should be clamped to 500ms and not spin (test it doesn't crash)
 if require_xclip; then
+  cleanup_instances
+  "$AUTOCUTSEL" -pause 0 &
+  _pid=$!
+  sleep 2
+
+  _tests_run=$((_tests_run + 1))
+  if kill -0 "$_pid" 2>/dev/null; then
+    echo "  PASS: -pause 0 runs without crash (clamped to 500ms)"
+    _tests_passed=$((_tests_passed + 1))
+  else
+    echo "  FAIL: -pause 0 crashed"
+    _tests_failed=$((_tests_failed + 1))
+  fi
+
+  # Verify it actually syncs (proves it wasn't stuck at 0ms spin)
+  set_selection CLIPBOARD "pause_zero_val"
+  wait_for_cutbuffer "pause_zero_val" 0 5
+  run_capture 3 "$CUTSEL" cut
+  assert_contains "-pause 0 still syncs (clamped)" "$_output" "pause_zero_val"
+
+  kill "$_pid" 2>/dev/null
+  wait "$_pid" 2>/dev/null
+  sleep 1
+
+  # -pause 1 should also work (minimum valid value after clamping)
   cleanup_instances
   "$AUTOCUTSEL" -pause 1 &
   _pid=$!
@@ -510,7 +535,6 @@ wait 2>/dev/null
 # SIGHUP — clean exit
 "$AUTOCUTSEL" &
 _pid=$!
-disown "$_pid" 2>/dev/null  # detach from job control to suppress shell notification
 sleep 1
 kill -HUP "$_pid" 2>/dev/null
 sleep 1
@@ -891,8 +915,8 @@ cleanup_instances
 _pid=$!
 sleep 1
 if ! kill -0 "$_pid" 2>/dev/null; then
-  _tests_run=$((_tests_run + 1))
-  _tests_skipped=$((_tests_skipped + 1))
+  _tests_run=$((_tests_run + 9))
+  _tests_skipped=$((_tests_skipped + 9))
   echo "  SKIP: mouseonly not available (libinput/input group)"
   wait "$_pid" 2>/dev/null
 elif require_xclip && [ "$_clean_display" -eq 1 ]; then
@@ -975,8 +999,8 @@ elif require_xclip && [ "$_clean_display" -eq 1 ]; then
     echo "  SKIP: mouseonly+encoding not available"
   fi
 else
-  _tests_run=$((_tests_run + 1))
-  _tests_skipped=$((_tests_skipped + 1))
+  _tests_run=$((_tests_run + 9))
+  _tests_skipped=$((_tests_skipped + 9))
   echo "  SKIP: xclip or clean display not available for reverse sync test"
   kill "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null

@@ -116,8 +116,7 @@ _saved_display="${DISPLAY:-}"
 unset DISPLAY
 
 # autocutsel should exit with error, not segfault (exit code 1, not 139)
-_output=$("$AUTOCUTSEL" 2>&1 || true)
-_exit_code=$?
+_output=$("$AUTOCUTSEL" 2>&1) ; _exit_code=$?
 _tests_run=$((_tests_run + 1))
 if [ "$_exit_code" -ne 139 ] && [ "$_exit_code" -ne 134 ] && [ "$_exit_code" -ne 136 ]; then
   _tests_passed=$((_tests_passed + 1))
@@ -138,8 +137,7 @@ else
 fi
 
 # Same for cutsel
-_output=$("$CUTSEL" cut 2>&1 || true)
-_exit_code=$?
+_output=$("$CUTSEL" cut 2>&1) ; _exit_code=$?
 _tests_run=$((_tests_run + 1))
 if [ "$_exit_code" -ne 139 ] && [ "$_exit_code" -ne 134 ] && [ "$_exit_code" -ne 136 ]; then
   _tests_passed=$((_tests_passed + 1))
