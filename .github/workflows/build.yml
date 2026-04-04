@@ -76,7 +76,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          zypper --non-interactive install \
+          zypper --non-interactive --force-resolution install \
             gcc make gawk autoconf automake libtool pkg-config file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel \
@@ -228,7 +228,11 @@ jobs:
         run: ./configure CFLAGS="-g -O1 -U_FORTIFY_SOURCE"
 
       - name: Build
+      - name: Build
         run: make
+
+      - name: Build test binary
+        run: make tests/test-unit
 
       - name: Valgrind unit tests
         run: valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=definite ./tests/test-unit
@@ -276,7 +280,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          zypper --non-interactive install \
+          zypper --non-interactive --force-resolution install \
             gcc make gawk autoconf automake libtool rpm-build pkg-config \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
             libinput-devel libudev-devel \
