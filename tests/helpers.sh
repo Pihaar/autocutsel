@@ -24,8 +24,15 @@ ensure_display() {
     Xvfb :99 -screen 0 640x480x8 -nolisten tcp &
     XVFB_PID=$!
     export DISPLAY=:99
-    # Wait for Xvfb to be ready
-    sleep 1
+    # Wait for Xvfb to be ready (xkbcomp can take several seconds)
+    _wait=0
+    while [ "$_wait" -lt 10 ]; do
+      if "$CUTSEL" cut "" 2>/dev/null; then
+        break
+      fi
+      sleep 1
+      _wait=$((_wait + 1))
+    done
     if kill -0 "$XVFB_PID" 2>/dev/null; then
       return 0
     fi
@@ -187,7 +194,16 @@ ensure_clean_display() {
     Xvfb ":$_xvfb_disp" -screen 0 640x480x8 -nolisten tcp &
     XVFB_PID=$!
     export DISPLAY=":$_xvfb_disp"
-    sleep 1
+    # Wait for Xvfb to be ready — it needs time for xkbcomp initialization.
+    # Validate with a round-trip X request (cutsel --version needs DISPLAY).
+    _wait=0
+    while [ "$_wait" -lt 10 ]; do
+      if "$CUTSEL" cut "" 2>/dev/null; then
+        break
+      fi
+      sleep 1
+      _wait=$((_wait + 1))
+    done
     if kill -0 "$XVFB_PID" 2>/dev/null; then
       _clean_display=1
       return 0
