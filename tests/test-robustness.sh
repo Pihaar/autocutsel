@@ -70,9 +70,12 @@ echo "Large data:"
 
 # 10 KB through cutbuffer
 _large_10k=$(dd if=/dev/urandom bs=1024 count=8 2>/dev/null | base64 | tr -d '\n' | head -c 10240)
-"$CUTSEL" cut "$_large_10k" >/dev/null 2>&1
+_large_10k_len=$(printf '%s' "$_large_10k" | wc -c)
+echo "  (10KB data generated: $_large_10k_len bytes)"
+"$CUTSEL" cut "$_large_10k" 2>&1; echo "  (write exit: $?)"
 sleep 2
 run_capture 5 "$CUTSEL" cut
+echo "  (read got $(printf '%s' "$_output" | wc -c) bytes)"
 _first50=$(printf '%s' "$_large_10k" | head -c 50)
 _last50=$(printf '%s' "$_large_10k" | tail -c 50)
 assert_contains "10KB cutbuffer start matches" "$_output" "$_first50"
