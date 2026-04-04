@@ -17,13 +17,25 @@ echo "=== Robustness tests ==="
 
 echo "Cutbuffer parameter:"
 
-# Initialize all 8 cutbuffers (ensures X server creates CUT_BUFFER0..7 properties)
+# Initialize all 8 cutbuffers and verify they are functional.
+# Xvfb needs time after startup before non-zero cutbuffers work reliably.
 _b=0
 while [ "$_b" -le 7 ]; do
   "$CUTSEL" -cutbuffer "$_b" cut "init_${_b}" >/dev/null 2>&1
   _b=$((_b + 1))
 done
 sleep 1
+# Verify buffer 1 works (retry up to 10s if Xvfb is still initializing)
+_warmup=0
+while [ "$_warmup" -lt 10 ]; do
+  "$CUTSEL" -cutbuffer 1 cut "warmup" >/dev/null 2>&1
+  _check=$("$CUTSEL" -cutbuffer 1 cut 2>/dev/null)
+  if printf '%s' "$_check" | grep -qF "warmup"; then
+    break
+  fi
+  sleep 1
+  _warmup=$((_warmup + 1))
+done
 
 # Write to cutbuffer 1 and read back
 "$CUTSEL" -cutbuffer 1 cut "buffer_one_value" >/dev/null 2>&1
