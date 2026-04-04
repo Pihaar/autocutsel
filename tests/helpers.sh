@@ -163,13 +163,11 @@ assert_not_running() {
 # Previous xclip processes may still own selections from earlier tests —
 # killing them prevents stale values from bleeding across test sections.
 cleanup_instances() {
-  pkill -x "autocutsel" 2>/dev/null || true
-  pkill -x "cutsel" 2>/dev/null || true
-  pkill -x "xclip" 2>/dev/null || true
-  sleep 1
-  # Force-kill any remaining instances (e.g., forked children via setsid)
   pkill -9 -x "autocutsel" 2>/dev/null || true
-  sleep 0.5
+  pkill -9 -x "cutsel" 2>/dev/null || true
+  pkill -9 -x "xclip" 2>/dev/null || true
+  # Give the X server time to notice client death and release selection locks
+  sleep 2
   # Clear cutbuffer 0 so sync tests start with a known-empty state
   "$CUTSEL" cut "" 2>/dev/null || true
 }

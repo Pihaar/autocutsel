@@ -75,21 +75,27 @@ else
 fi
 
 sleep 2
-_fpid=$(ps -eo pid,args | grep "[a]utocutsel.*-fork" | awk '{print $1}')
+_fpid=$(pgrep -f "autocutsel.*-fork" 2>/dev/null | head -1)
 if [ -n "$_fpid" ]; then
   _tests_run=$((_tests_run + 1))
   _tests_passed=$((_tests_passed + 1))
   echo "  PASS: fork child process running"
 
   # Child should not be a zombie and should have init or systemd as parent
-  _ppid=$(ps -o ppid= -p "$_fpid" 2>/dev/null | tr -d ' ')
-  _tests_run=$((_tests_run + 1))
-  if [ -n "$_ppid" ] && [ "$_ppid" != "$$" ]; then
-    _tests_passed=$((_tests_passed + 1))
-    echo "  PASS: fork child re-parented (ppid=$_ppid, not test shell $$)"
+  if command -v ps >/dev/null 2>&1; then
+    _ppid=$(ps -o ppid= -p "$_fpid" 2>/dev/null | tr -d ' ')
+    _tests_run=$((_tests_run + 1))
+    if [ -n "$_ppid" ] && [ "$_ppid" != "$$" ]; then
+      _tests_passed=$((_tests_passed + 1))
+      echo "  PASS: fork child re-parented (ppid=$_ppid, not test shell $$)"
+    else
+      _tests_failed=$((_tests_failed + 1))
+      echo "  FAIL: fork child not re-parented (ppid=$_ppid)"
+    fi
   else
-    _tests_failed=$((_tests_failed + 1))
-    echo "  FAIL: fork child not re-parented (ppid=$_ppid)"
+    _tests_run=$((_tests_run + 1))
+    _tests_skipped=$((_tests_skipped + 1))
+    echo "  SKIP: ps not available for re-parent check"
   fi
 
   kill $_fpid 2>/dev/null
@@ -112,7 +118,7 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   "$AUTOCUTSEL" -mouseonly -fork 2>&1
   _fork_exit=$?
   sleep 2
-  _fpid=$(ps -eo pid,args | grep "[a]utocutsel.*-mouseonly.*-fork" | awk '{print $1}')
+  _fpid=$(pgrep -f "autocutsel.*-mouseonly.*-fork" 2>/dev/null | head -1)
 
   _tests_run=$((_tests_run + 1))
   if [ -n "$_fpid" ] && [ "$_fork_exit" -eq 0 ]; then

@@ -315,21 +315,27 @@ assert_exit "fork parent exits 0" "$_fork_exit" 0
 
 # Find the forked child
 sleep 1
-_fpid=$(ps -eo pid,args | grep "[a]utocutsel.*-fork" | awk '{print $1}')
+_fpid=$(pgrep -f "autocutsel.*-fork" 2>/dev/null | head -1)
 _tests_run=$((_tests_run + 1))
 if [ -n "$_fpid" ]; then
   echo "  PASS: forked child is running (PID $_fpid)"
   _tests_passed=$((_tests_passed + 1))
 
-  # Verify child has a new session (setsid)
-  _child_sid=$(ps -o sid= -p "$_fpid" 2>/dev/null | tr -d ' ')
-  _tests_run=$((_tests_run + 1))
-  if [ "$_child_sid" = "$_fpid" ]; then
-    echo "  PASS: forked child is session leader (SID=$_child_sid)"
-    _tests_passed=$((_tests_passed + 1))
+  # Verify child has a new session (setsid) — skip if ps not available
+  if command -v ps >/dev/null 2>&1; then
+    _child_sid=$(ps -o sid= -p "$_fpid" 2>/dev/null | tr -d ' ')
+    _tests_run=$((_tests_run + 1))
+    if [ "$_child_sid" = "$_fpid" ]; then
+      echo "  PASS: forked child is session leader (SID=$_child_sid)"
+      _tests_passed=$((_tests_passed + 1))
+    else
+      echo "  FAIL: forked child SID=$_child_sid, expected $_fpid (setsid)"
+      _tests_failed=$((_tests_failed + 1))
+    fi
   else
-    echo "  FAIL: forked child SID=$_child_sid, expected $_fpid (setsid)"
-    _tests_failed=$((_tests_failed + 1))
+    _tests_run=$((_tests_run + 1))
+    _tests_skipped=$((_tests_skipped + 1))
+    echo "  SKIP: ps not available for SID check"
   fi
 
   kill "$_fpid" 2>/dev/null
@@ -554,7 +560,7 @@ wait "$_pid" 2>/dev/null
 # Test that the forked child responds to SIGINT.
 "$AUTOCUTSEL" -fork
 sleep 1
-_fpid=$(ps -eo pid,args | grep "[a]utocutsel.*-fork" | awk '{print $1}')
+_fpid=$(pgrep -f "autocutsel.*-fork" 2>/dev/null | head -1)
 if [ -n "$_fpid" ]; then
   kill -INT "$_fpid" 2>/dev/null
   sleep 1
