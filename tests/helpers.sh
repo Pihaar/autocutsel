@@ -27,7 +27,7 @@ ensure_display() {
     # Wait for Xvfb to be ready (xkbcomp can take several seconds)
     _wait=0
     while [ "$_wait" -lt 10 ]; do
-      if "$CUTSEL" cut "" 2>/dev/null; then
+      if timeout 2 "$CUTSEL" cut >/dev/null 2>&1; then
         break
       fi
       sleep 1
@@ -194,11 +194,11 @@ ensure_clean_display() {
     Xvfb ":$_xvfb_disp" -screen 0 640x480x8 -nolisten tcp &
     XVFB_PID=$!
     export DISPLAY=":$_xvfb_disp"
-    # Wait for Xvfb to be ready — it needs time for xkbcomp initialization.
-    # Validate with a round-trip X request (cutsel --version needs DISPLAY).
+    # Wait for Xvfb to be ready (xkbcomp can take several seconds).
+    # Use a cutbuffer read as round-trip test — requires working X connection.
     _wait=0
     while [ "$_wait" -lt 10 ]; do
-      if "$CUTSEL" cut "" 2>/dev/null; then
+      if timeout 2 "$CUTSEL" cut >/dev/null 2>&1; then
         break
       fi
       sleep 1
