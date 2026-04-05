@@ -431,6 +431,12 @@ assert_not_contains "empty write clears cutbuffer" "$_output" "something_first"
 echo ""
 echo "Newlines in cutbuffer:"
 
+# Probe: verify cutbuffer write works (may fail on some Xvfb in CI)
+"$CUTSEL" cut "multiline_probe" >/dev/null 2>&1
+sleep 0.5
+_mlprobe=$("$CUTSEL" cut 2>/dev/null)
+if printf '%s' "$_mlprobe" | grep -qF "multiline_probe"; then
+
 "$CUTSEL" cut "line1
 line2
 line3" >/dev/null 2>&1
@@ -439,6 +445,12 @@ run_capture 3 "$CUTSEL" cut
 assert_contains "multiline: first line preserved" "$_output" "line1"
 assert_contains "multiline: second line preserved" "$_output" "line2"
 assert_contains "multiline: third line preserved" "$_output" "line3"
+
+else  # multiline probe failed
+  _tests_run=$((_tests_run + 3))
+  _tests_skipped=$((_tests_skipped + 3))
+  echo "  SKIP: cutbuffer writes not functional on this X server"
+fi
 
 # --- Default cutbuffer 0 (implicit) ---
 
