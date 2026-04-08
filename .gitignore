@@ -29,6 +29,7 @@ stamp-h1
 .dirstamp
 autocutsel
 cutsel
+tests/test-unit
 
 # Autotools test harness
 test-driver
