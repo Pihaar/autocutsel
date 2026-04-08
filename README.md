@@ -189,9 +189,13 @@ Available configurations in `examples/`:
 
 - **Xvfb cutbuffer cross-process visibility**: On some Xvfb versions (confirmed on 1.20.11), `XStoreBuffer` from one process is not visible to `XFetchBuffer` from another process. This does not affect real Xorg or XWayland servers. The test suite probes for this behavior and skips affected tests automatically.
 
-### Native Wayland Clipboard (planned)
+### Native Wayland Clipboard
 
-Most Wayland compositors bridge the clipboard between XWayland and native Wayland applications automatically. autocutsel works through this bridge. A future enhancement will add direct Wayland clipboard integration via `wl-paste --watch` and `wl-copy` for compositors where the XWayland bridge does not cover all cases.
+Native Wayland clipboard monitoring (via `wl-paste --watch`) requires the `wlr-data-control` protocol, which is only available on wlroots-based compositors (Sway, Hyprland). GNOME (Mutter) and KDE (KWin) do not support this protocol.
+
+However, **native Wayland support is not needed** on GNOME and KDE: these compositors automatically bridge CLIPBOARD and PRIMARY between XWayland and native Wayland applications in both directions. autocutsel works transparently through this bridge — clipboard content from native Wayland apps (including browser "copy" buttons) is visible to autocutsel via XWayland, and vice versa.
+
+For wlroots-based compositors, `wl-paste --watch` can be used as a standalone clipboard monitor alongside autocutsel.
 
 ## Acknowledgments
 
