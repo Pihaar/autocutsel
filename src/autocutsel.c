@@ -872,6 +872,10 @@ int main(int argc, char* argv[])
         XFixesSelectionWindowDestroyNotifyMask |
         XFixesSelectionClientCloseNotifyMask);
       XtAddRawEventHandler(top, 0, True, XFixesSelectionHandler, NULL);
+      // Initial poll: read the current selection once so we don't miss
+      // an owner that existed before we started listening for events.
+      XtGetSelectionValue(box, sel_atom, utf8_atom,
+        SelectionReceived, SEL_TRY_UTF8, CurrentTime);
     } else if (options.debug) {
       printf("XFixes %d.%d too old (need 1.0+), using polling\n",
              xfixes_major, xfixes_minor);
