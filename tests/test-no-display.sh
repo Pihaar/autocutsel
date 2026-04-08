@@ -77,7 +77,7 @@ fi
 echo ""
 echo "Library linkage:"
 
-for _lib in libX11 libXt libXmu libXaw libinput; do
+for _lib in libX11 libXt libXmu libXaw; do
   _tests_run=$((_tests_run + 1))
   if ldd "$AUTOCUTSEL_REAL" 2>/dev/null | grep -q "$_lib"; then
     _tests_passed=$((_tests_passed + 1))
@@ -85,6 +85,18 @@ for _lib in libX11 libXt libXmu libXaw libinput; do
   else
     _tests_failed=$((_tests_failed + 1))
     echo "  FAIL: autocutsel does not link $_lib"
+  fi
+done
+
+# libinput and libXfixes are optional — report but don't fail
+for _lib in libinput libXfixes; do
+  _tests_run=$((_tests_run + 1))
+  if ldd "$AUTOCUTSEL_REAL" 2>/dev/null | grep -q "$_lib"; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: autocutsel links $_lib"
+  else
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: autocutsel built without $_lib (optional)"
   fi
 done
 

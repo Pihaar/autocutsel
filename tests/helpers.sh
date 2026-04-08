@@ -1,6 +1,12 @@
 #!/bin/sh
 # Common test helpers for autocutsel test suite
 # Exit codes: 0 = pass, 1 = fail, 77 = skip (autotools convention)
+#
+# Known Xvfb issue: XStoreBuffer from one cutsel process may not be visible
+# to XFetchBuffer from another cutsel process on some Xvfb builds (confirmed
+# on Xvfb 1.20.11 in CI containers). This affects cutbuffer-based tests.
+# Tests probe cutbuffer functionality before running and SKIP if unreliable.
+# This does not affect real Xorg or XWayland servers.
 
 PASS=0
 FAIL=1

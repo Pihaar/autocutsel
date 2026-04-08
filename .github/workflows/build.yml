@@ -51,7 +51,7 @@ jobs:
         run: |
           dnf install -y \
             gcc make autoconf automake libtool file \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
@@ -78,7 +78,7 @@ jobs:
         run: |
           zypper --non-interactive install --allow-downgrade \
             gcc make gawk autoconf automake libtool pkg-config file \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
@@ -106,7 +106,7 @@ jobs:
           apt-get update
           apt-get install -y \
             gcc make autoconf automake libtool pkg-config \
-            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev libxfixes-dev \
             libinput-dev libudev-dev \
             xvfb xclip
 
@@ -134,7 +134,7 @@ jobs:
           apt-get update
           apt-get install -y \
             gcc make autoconf automake libtool pkg-config \
-            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev libxfixes-dev \
             libinput-dev libudev-dev \
             xvfb xclip
 
@@ -161,7 +161,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm \
             autoconf automake libtool pkg-config \
-            libx11 libxt libxmu libxaw libxext \
+            libx11 libxt libxmu libxaw libxext libxfixes \
             libinput systemd \
             xorg-server-xvfb xclip
 
@@ -188,7 +188,7 @@ jobs:
         run: |
           dnf install -y \
             gcc make autoconf automake libtool file \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip libasan libubsan
 
@@ -215,7 +215,7 @@ jobs:
         run: |
           dnf install -y \
             gcc make autoconf automake libtool file valgrind \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
@@ -236,6 +236,39 @@ jobs:
       - name: Valgrind unit tests
         run: valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=definite ./tests/test-unit
 
+  build-no-libinput:
+    name: Build without libinput (Fedora)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install dependencies (no libinput, no libudev, no libXfixes)
+        run: |
+          dnf install -y \
+            gcc make autoconf automake libtool file \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel
+
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap
+        run: ./bootstrap
+
+      - name: Configure (verify warnings, not errors)
+        run: |
+          ./configure 2>&1 | tee configure.log
+          grep -q "libinput not found" configure.log
+          grep -q "libXfixes not found" configure.log
+
+      - name: Build
+        run: make
+
+      - name: Verify no libinput linkage
+        run: |
+          ! ldd autocutsel | grep -q libinput
+          ! ldd autocutsel | grep -q libXfixes
+
+      - name: Test
+        run: make check || { cat test-suite.log; exit 1; }
+
   rpm-fedora:
     name: RPM (Fedora)
     runs-on: ubuntu-latest
@@ -246,7 +279,7 @@ jobs:
         run: |
           dnf install -y \
             gcc make autoconf automake libtool rpm-build \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel
 
       - uses: actions/checkout@v6
@@ -281,7 +314,7 @@ jobs:
         run: |
           zypper --non-interactive install --allow-downgrade \
             gcc make gawk autoconf automake libtool rpm-build pkg-config \
-            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel \
+            libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
@@ -326,7 +359,7 @@ jobs:
           apt-get update
           apt-get install -y \
             gcc make autoconf automake libtool pkg-config \
-            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev \
+            libx11-dev libxt-dev libxmu-dev libxaw7-dev libxext-dev libxfixes-dev \
             libinput-dev libudev-dev \
             xvfb xclip \
             debhelper fakeroot dpkg-dev
@@ -355,7 +388,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm \
             autoconf automake libtool pkg-config \
-            libx11 libxt libxmu libxaw libxext \
+            libx11 libxt libxmu libxaw libxext libxfixes \
             libinput systemd \
             xorg-server-xvfb xclip git
 

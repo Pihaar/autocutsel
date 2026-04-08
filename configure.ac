@@ -34,16 +34,31 @@ AC_CHECK_LIB(Xmu, XmuGetHostname,
   AC_MSG_ERROR(Unable to find Xmu library),
   $LIBS)
 
+PKG_CHECK_MODULES([XFIXES], [xfixes],
+  [AC_DEFINE([HAVE_XFIXES], [1], [Define if XFixes is available])],
+  [AC_MSG_WARN([libXfixes not found — using polling fallback for selection monitoring])])
+
 PKG_CHECK_MODULES([LIBINPUT], [libinput],
-  [CFLAGS="$CFLAGS $LIBINPUT_CFLAGS"
+  [have_libinput=yes
+   CFLAGS="$CFLAGS $LIBINPUT_CFLAGS"
    AC_DEFINE([USE_LIBINPUT], [1], [Define if libinput is available])],
-  AC_MSG_ERROR(Unable to find libinput))
+  [have_libinput=no
+   AC_MSG_WARN([libinput not found — -mouseonly option will not be available])])
 
-PKG_CHECK_MODULES([LIBUDEV], [libudev],
-  [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"],
-  AC_MSG_ERROR(Unable to find libudev))
+if test "x$have_libinput" = xyes; then
+  PKG_CHECK_MODULES([LIBUDEV], [libudev],
+    [CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"],
+    [have_libinput=no
+     AC_MSG_WARN([libudev not found — -mouseonly option will not be available])])
+fi
 
-AUTOCUTSEL_LIBS="$LIBINPUT_LIBS $LIBUDEV_LIBS -lpthread"
+if test "x$have_libinput" = xyes; then
+  AUTOCUTSEL_LIBS="$LIBINPUT_LIBS $LIBUDEV_LIBS -lpthread $XFIXES_LIBS"
+else
+  AUTOCUTSEL_LIBS="$XFIXES_LIBS"
+fi
+CFLAGS="$CFLAGS $XFIXES_CFLAGS"
+AM_CONDITIONAL([HAVE_LIBINPUT], [test "x$have_libinput" = xyes])
 AC_SUBST([AUTOCUTSEL_LIBS])
 
 dnl Checks for library functions.

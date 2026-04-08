@@ -32,6 +32,11 @@
 
 #include "common.h"
 
+#ifdef HAVE_XFIXES
+#include <X11/extensions/Xfixes.h>
+#endif
+
+#ifdef USE_LIBINPUT
 // libinput callbacks for opening/closing device files
 static int open_restricted(const char *path, int flags, void *user_data)
 {
@@ -52,8 +57,6 @@ static const struct libinput_interface li_interface = {
 static atomic_int li_thread_running = 1;
 static pthread_t li_thread_id;
 static int li_thread_created = 0;
-static Atom utf8_atom;
-static Atom primary_atom;  // cached PRIMARY atom for stale-holder clear
 static int mouse_pipe[2] = {-1, -1};
 
 // Dedicated thread for libinput event processing
@@ -65,7 +68,7 @@ static void *libinput_thread(void *arg)
   while (atomic_load(&li_thread_running)) {
     if (poll(&pfd, 1, 500) < 0) {
       if (errno != EINTR)
-        usleep(100000);  // backoff on persistent errors
+        usleep(100000);
       continue;
     }
     libinput_dispatch(li);
@@ -75,7 +78,6 @@ static void *libinput_thread(void *arg)
         struct libinput_event_pointer *pev = libinput_event_get_pointer_event(ev);
         if (libinput_event_pointer_get_button(pev) == BTN_LEFT &&
             libinput_event_pointer_get_button_state(pev) == LIBINPUT_BUTTON_STATE_RELEASED) {
-          // Signal the Xt main loop via pipe for immediate processing
           if (mouse_pipe[1] >= 0) {
             char c = 'r';
             if (write(mouse_pipe[1], &c, 1) < 0 && errno != EAGAIN)
@@ -88,6 +90,16 @@ static void *libinput_thread(void *arg)
   }
   return NULL;
 }
+#endif /* USE_LIBINPUT */
+
+static Atom utf8_atom;
+static Atom primary_atom;
+
+#ifdef HAVE_XFIXES
+static int xfixes_event_base = 0;
+static int xfixes_error_base = 0;
+static int have_xfixes = 0;
+#endif
 
 static XrmOptionDescRec optionDesc[] = {
   {"-selection", "selection", XrmoptionSepArg, NULL},
@@ -158,6 +170,7 @@ static void CloseStdFds(void)
   }
 }
 
+#ifdef USE_LIBINPUT
 static void CleanupLibinput(void)
 {
   if (options.li) {
@@ -170,11 +183,14 @@ static void CleanupLibinput(void)
     if (mouse_pipe[1] >= 0) { close(mouse_pipe[1]); mouse_pipe[1] = -1; }
   }
 }
+#endif
 
 static void Terminate(int caught)
 {
   (void)caught;
+#ifdef USE_LIBINPUT
   atomic_store(&li_thread_running, 0);
+#endif
   _exit(0);
 }
 
@@ -357,8 +373,10 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
     // In mouseonly mode, a valid response means we captured the selection
     // (whether changed or not). Stop further grace reads to avoid catching
     // subsequent keyboard selections.
+#ifdef USE_LIBINPUT
     if (options.mouseonly)
       atomic_store(&options.mouse_grace_ticks, 0);
+#endif
 
     char *store_value = (char*)value;
     int store_length = length;
@@ -558,6 +576,36 @@ static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
 }
 
 // Separate timer for reverse direction polling (CLIPBOARD→PRIMARY).
+#ifdef HAVE_XFIXES
+// XFixes event handler: fires when selection ownership changes.
+// Replaces forward polling for instant detection of selection changes.
+static void XFixesSelectionHandler(Widget w, XtPointer client_data,
+                                   XEvent *event, Boolean *cont)
+{
+  if (event->type != xfixes_event_base + XFixesSelectionNotify)
+    return;
+
+  XFixesSelectionNotifyEvent *sev = (XFixesSelectionNotifyEvent *)event;
+
+  if (sev->selection != sel_atom)
+    return;
+
+  if (sev->owner == XtWindow(box) || sev->owner == None)
+    return;
+
+  if (options.debug) {
+    char *sel_name = XGetAtomName(dpy, sev->selection);
+    printf("XFixes: selection %s owner changed (subtype %d)\n",
+           sel_name ? sel_name : "?", sev->subtype);
+    if (sel_name) XFree(sel_name);
+  }
+
+  XtGetSelectionValue(box, sel_atom, utf8_atom,
+    SelectionReceived, SEL_TRY_UTF8, CurrentTime);
+}
+#endif
+
+// Separate timer for reverse direction polling (CLIPBOARD->PRIMARY).
 // Fires every 500ms independently of the forward poll timer.
 // Used in both mouseonly and Wayland modes.
 static void reverse_timeout(XtPointer p, XtIntervalId* i)
@@ -572,6 +620,7 @@ static void reverse_timeout(XtPointer p, XtIntervalId* i)
 static void timeout(XtPointer p, XtIntervalId* i)
 {
   if (options.mouseonly) {
+#ifdef USE_LIBINPUT
     // mouseonly: check pipe for mouse button release signal from libinput thread
     if (drain_pipe(mouse_pipe[0])) {
       if (options.debug)
@@ -590,10 +639,16 @@ static void timeout(XtPointer p, XtIntervalId* i)
         SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
     }
+#endif
   } else if (options.own_selection && !options.wayland) {
     // We own the selection — check if the cutbuffer changed
     CheckBuffer();
   } else {
+#ifdef HAVE_XFIXES
+    // When XFixes is active, selection ownership changes are event-driven
+    // (via XFixesSelectionHandler). No need to poll here.
+    if (!have_xfixes) {
+#endif
     int get_value = 1;
 
     if (options.buttonup) {
@@ -611,6 +666,9 @@ static void timeout(XtPointer p, XtIntervalId* i)
       XtGetSelectionValue(box, sel_atom, utf8_atom,
         SelectionReceived, SEL_TRY_UTF8,
         CurrentTime);
+#ifdef HAVE_XFIXES
+    }
+#endif
   }
 
   // mouseonly uses a shorter interval since it only checks a local pipe
@@ -625,7 +683,9 @@ int main(int argc, char* argv[])
 
   // Ignore SIGPIPE so a pipe write in the libinput thread does not
   // kill the process if the read end is closed unexpectedly.
+#ifdef USE_LIBINPUT
   signal(SIGPIPE, SIG_IGN);
+#endif
 
   // Pre-scan for --help/--version before Xt opens the X connection
   for (int i = 1; i < argc; i++) {
@@ -684,12 +744,22 @@ int main(int argc, char* argv[])
   if (options.pause < 1)
     options.pause = 500;
 
+#ifndef USE_LIBINPUT
+  // Without libinput, -mouseonly cannot distinguish mouse from keyboard selections
+  if (options.mouseonly) {
+    fprintf(stderr, "autocutsel: -mouseonly requires libinput (not available in this build)\n");
+    return 1;
+  }
+#endif
+
   // Auto-detect Wayland session (cutbuffer does not work under XWayland)
   options.wayland = (getenv("WAYLAND_DISPLAY") != NULL) ? 1 : 0;
   if (options.wayland && (options.debug || options.verbose))
     printf("Wayland detected, using direct selection sync (no cutbuffer)\n");
 
+#ifdef USE_LIBINPUT
   atomic_init(&options.mouse_grace_ticks, 0);
+#endif
 
   if (strcmp(options.fork_option, "on") == 0) {
     options.fork = 1;
@@ -787,6 +857,30 @@ int main(int argc, char* argv[])
   XtRealizeWidget(top);
   XUnmapWindow(XtDisplay(top), XtWindow(top));
 
+#ifdef HAVE_XFIXES
+  // Probe for XFixes extension: enables event-driven selection monitoring
+  if (XFixesQueryExtension(dpy, &xfixes_event_base, &xfixes_error_base)) {
+    int xfixes_major = 0, xfixes_minor = 0;
+    XFixesQueryVersion(dpy, &xfixes_major, &xfixes_minor);
+    if (xfixes_major >= 1) {
+      have_xfixes = 1;
+      if (options.debug || options.verbose)
+        printf("XFixes %d.%d: using event-driven selection monitoring\n",
+               xfixes_major, xfixes_minor);
+      XFixesSelectSelectionInput(dpy, XtWindow(top), sel_atom,
+        XFixesSetSelectionOwnerNotifyMask |
+        XFixesSelectionWindowDestroyNotifyMask |
+        XFixesSelectionClientCloseNotifyMask);
+      XtAddRawEventHandler(top, 0, True, XFixesSelectionHandler, NULL);
+    } else if (options.debug) {
+      printf("XFixes %d.%d too old (need 1.0+), using polling\n",
+             xfixes_major, xfixes_minor);
+    }
+  } else if (options.debug) {
+    printf("XFixes extension not available, using polling\n");
+  }
+#endif
+
   // Single-instance check: use a lock selection per monitored selection name
   {
     char lock_name[256];
@@ -815,6 +909,7 @@ int main(int argc, char* argv[])
     }
   }
 
+#ifdef USE_LIBINPUT
   // Set up libinput for mouseonly mode: listen for pointer button events
   options.li = NULL;
   if (options.mouseonly) {
@@ -879,6 +974,7 @@ int main(int argc, char* argv[])
   // Since Terminate() uses _exit() (async-signal-safe), this handler only
   // runs if XtAppMainLoop somehow returns (which it normally does not).
   atexit(CleanupLibinput);
+#endif /* USE_LIBINPUT */
 
   // Register timers AFTER libinput setup (mouseonly may have been disabled
   // if libinput init failed, affecting which timers are needed).

@@ -13,6 +13,7 @@ Build-Depends: debhelper-compat (= 13),
                libxext-dev,
                libinput-dev,
                libudev-dev,
+               libxfixes-dev,
                pkg-config
 Standards-Version: 4.6.2
 Homepage: https://github.com/Pihaar/autocutsel

@@ -24,6 +24,7 @@ BuildRequires:  pkgconfig(xmu)
 BuildRequires:  pkgconfig(xext)
 BuildRequires:  pkgconfig(libinput)
 BuildRequires:  pkgconfig(libudev)
+BuildRequires:  pkgconfig(xfixes)
 BuildRequires:  libXaw-devel
 BuildRequires:  systemd-rpm-macros
 

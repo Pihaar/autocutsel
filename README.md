@@ -185,6 +185,14 @@ Available configurations in `examples/`:
 | `clipboard.args` | Sync CLIPBOARD with cutbuffer (traditional, pair with primary) |
 | `primary.args` | Sync PRIMARY with cutbuffer (traditional, pair with clipboard) |
 
+## Known Issues
+
+- **Xvfb cutbuffer cross-process visibility**: On some Xvfb versions (confirmed on 1.20.11), `XStoreBuffer` from one process is not visible to `XFetchBuffer` from another process. This does not affect real Xorg or XWayland servers. The test suite probes for this behavior and skips affected tests automatically.
+
+### Native Wayland Clipboard (planned)
+
+Most Wayland compositors bridge the clipboard between XWayland and native Wayland applications automatically. autocutsel works through this bridge. A future enhancement will add direct Wayland clipboard integration via `wl-paste --watch` and `wl-copy` for compositors where the XWayland bridge does not cover all cases.
+
 ## Acknowledgments
 
 autocutsel was originally created by [Michael Witrant](https://github.com/sigmike) (sigmike).
