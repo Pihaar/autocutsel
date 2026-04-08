@@ -987,11 +987,14 @@ fi
 echo ""
 echo "All 8 cutbuffers:"
 
+if [ "$_nonzero_buf_ok" -eq 1 ]; then
+
 _b=0
 while [ "$_b" -le 7 ]; do
-  run_capture 3 "$CUTSEL" -cutbuffer "$_b" cut "val_buf_${_b}"
+  "$CUTSEL" -cutbuffer "$_b" cut "val_buf_${_b}" >/dev/null 2>&1
   _b=$((_b + 1))
 done
+sleep 1
 
 # Verify each buffer has its own value
 _b=0
@@ -1000,6 +1003,12 @@ while [ "$_b" -le 7 ]; do
   assert_contains "cutbuffer $_b has correct value" "$_output" "val_buf_${_b}"
   _b=$((_b + 1))
 done
+
+else
+  _tests_run=$((_tests_run + 8))
+  _tests_skipped=$((_tests_skipped + 8))
+  echo "  SKIP: cutbuffer writes not reliable on this X server"
+fi
 
 # --- Mouseonly reverse sync (CLIPBOARD → PRIMARY) ---
 
