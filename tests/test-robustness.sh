@@ -157,7 +157,11 @@ if require_xclip; then
   "$AUTOCUTSEL" &
   _probe_pid=$!
   if wait_for_cutbuffer "_sync_probe_robustness" 0 10; then
-    _sync_functional=1
+    # Also verify that a SECOND clipboard change propagates (tests the ongoing sync)
+    set_selection CLIPBOARD "_sync_probe_update"
+    if wait_for_cutbuffer "_sync_probe_update" 0 10; then
+      _sync_functional=1
+    fi
   fi
   kill -9 "$_probe_pid" 2>/dev/null
   wait "$_probe_pid" 2>/dev/null
