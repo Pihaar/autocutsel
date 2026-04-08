@@ -148,8 +148,23 @@ else  # large_data_probe failed
   echo "  SKIP: large cutbuffer writes not functional on this X server"
 fi
 
-# Large selection sync (requires xclip)
+# Large selection sync and autocutsel functional tests require xclip + working
+# CLIPBOARD→cutbuffer sync.  Probe once before running the entire block.
+_sync_functional=0
 if require_xclip; then
+  cleanup_instances
+  set_selection CLIPBOARD "_sync_probe_robustness"
+  "$AUTOCUTSEL" &
+  _probe_pid=$!
+  if wait_for_cutbuffer "_sync_probe_robustness" 0 10; then
+    _sync_functional=1
+  fi
+  kill -9 "$_probe_pid" 2>/dev/null
+  wait "$_probe_pid" 2>/dev/null
+  sleep 2
+fi
+
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Large selection sync (via xclip):"
 
@@ -296,7 +311,7 @@ assert_exit "too-long selection name exits 1" "$_exit_code" 1
 
 # --- Autocutsel syncs to specified cutbuffer ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Autocutsel cutbuffer sync:"
 
@@ -325,7 +340,7 @@ fi
 
 # --- Pause parameter ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Pause parameter:"
 
@@ -484,7 +499,7 @@ fi
 
 # --- Cutbuffer persistence after autocutsel exit ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Cutbuffer persistence:"
 
@@ -546,7 +561,7 @@ echo "Invalid pause values:"
 
 # -pause 0 should be clamped to 500ms and not spin (test it doesn't crash).
 # Use unique selection names to avoid instance lock conflicts.
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   cleanup_instances
   "$AUTOCUTSEL" -selection _TEST_PAUSE0 -pause 0 &
   _pid=$!
@@ -656,7 +671,7 @@ fi
 sleep 1
 
 # Cutbuffer value persists after signal kill
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   cleanup_instances
 
   set_selection CLIPBOARD "signal_persist"
@@ -678,7 +693,7 @@ fi
 
 # --- Selection owner dies ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Selection owner death:"
 
@@ -723,7 +738,7 @@ fi
 
 # --- Rapid successive updates ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Rapid updates:"
 
@@ -788,7 +803,7 @@ sleep 1
 
 # --- Encoding with actual non-ASCII ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Encoding non-ASCII:"
 
@@ -838,7 +853,7 @@ wait "$_enc_owner" 2>/dev/null
 
 # --- Lossy encoding conversion ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Lossy encoding:"
 
@@ -869,7 +884,7 @@ fi
 
 # --- Custom selection name ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Custom selection name:"
 
@@ -894,7 +909,7 @@ fi
 
 # --- PRIMARY-clear after sync ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "PRIMARY-clear after CLIPBOARD sync:"
 
@@ -930,7 +945,7 @@ fi
 
 # --- Autocutsel restart with same selection ---
 
-if require_xclip; then
+if [ "$_sync_functional" -eq 1 ]; then
   echo ""
   echo "Restart with existing cutbuffer:"
 
