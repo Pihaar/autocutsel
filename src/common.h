@@ -46,9 +46,10 @@
 #include <limits.h>
 #include <iconv.h>
 
+#include <fcntl.h>
+
 #ifdef USE_LIBINPUT
 #include <stdatomic.h>
-#include <fcntl.h>
 #include <poll.h>
 #include <pthread.h>
 #include <libinput.h>
