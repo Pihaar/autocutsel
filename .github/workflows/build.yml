@@ -17,7 +17,7 @@ jobs:
     outputs:
       version: ${{ steps.get.outputs.version }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Extract version from configure.ac
         id: get
@@ -58,7 +58,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -85,7 +85,7 @@ jobs:
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -113,7 +113,7 @@ jobs:
             libinput-dev libudev-dev \
             xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -141,7 +141,7 @@ jobs:
             libinput-dev libudev-dev \
             xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -168,7 +168,7 @@ jobs:
             libinput systemd \
             xorg-server-xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -195,7 +195,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip libasan libubsan
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -222,7 +222,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -250,7 +250,7 @@ jobs:
             gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -285,7 +285,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Create source tarball
         env:
@@ -321,7 +321,7 @@ jobs:
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Create source tarball
         env:
@@ -367,7 +367,7 @@ jobs:
             xvfb xclip \
             debhelper fakeroot dpkg-dev
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
@@ -400,7 +400,7 @@ jobs:
           useradd -m builder
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Create source tarball
         env:
@@ -430,7 +430,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Create draft release
         env:
