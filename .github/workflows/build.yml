@@ -302,7 +302,7 @@ jobs:
         run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: rpm-fedora
           path: ~/rpmbuild/RPMS/**/*.rpm
@@ -346,7 +346,7 @@ jobs:
           done
 
       - name: Upload RPM
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: rpm-opensuse
           path: /usr/src/packages/RPMS/**/*.rpm
@@ -376,7 +376,7 @@ jobs:
         run: cp ../*.deb .
 
       - name: Upload DEB
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: deb-debian
           path: '*.deb'
@@ -418,7 +418,7 @@ jobs:
           su builder -c 'makepkg -sf --noconfirm'
 
       - name: Upload PKG
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pkg-archlinux
           path: '*.pkg.tar.zst'
