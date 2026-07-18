@@ -36,12 +36,37 @@
 #include <X11/extensions/Xfixes.h>
 #endif
 
+#include <syslog.h>
+
+// -mouseonly cannot function: either this build has no libinput, or no input
+// device is accessible (user not in the 'input' group). This is a permanent,
+// user-fixable misconfiguration; the systemd unit maps this exit code to
+// RestartPreventExitStatus so it does not restart-loop. Keep the value in sync
+// with contrib/systemd/autocutsel@.service.
+#define EXIT_MOUSEONLY_UNAVAILABLE 3
+
 #ifdef USE_LIBINPUT
 // libinput callbacks for opening/closing device files
+
+// Populated by open_restricted while libinput_udev_assign_seat() enumerates
+// devices synchronously in the main thread; read once directly afterwards,
+// before the libinput thread is created. atomic_int because open_restricted
+// also runs from the libinput thread on later hotplug -- those post-startup
+// increments are intentionally never read again (startup-only diagnosis).
+static atomic_int li_open_ok = 0;
+static atomic_int li_open_denied = 0;
+
 static int open_restricted(const char *path, int flags, void *user_data)
 {
   int fd = open(path, flags | O_CLOEXEC);
-  return fd < 0 ? -errno : fd;
+  if (fd < 0) {
+    int err = errno;
+    if (err == EACCES || err == EPERM)
+      atomic_fetch_add(&li_open_denied, 1);
+    return -err;
+  }
+  atomic_fetch_add(&li_open_ok, 1);
+  return fd;
 }
 
 static void close_restricted(int fd, void *user_data)
@@ -58,6 +83,20 @@ static atomic_int li_thread_running = 1;
 static pthread_t li_thread_id;
 static int li_thread_created = 0;
 static int mouse_pipe[2] = {-1, -1};
+
+// Diagnostics for the -mouseonly permission-denied case. stderr carries the
+// full, human-facing note; syslog carries a short, stable single line (SIEM-
+// friendly). The complete remediation (usermod command, keylogging trade-off,
+// XFixes alternative) lives in autocutsel(1), not in the log.
+static const char li_denied_stderr[] =
+  "autocutsel: -mouseonly: cannot open any input device (permission denied).\n"
+  "autocutsel: Your user is likely not in the 'input' group. Enabling it grants\n"
+  "autocutsel: read access to ALL input devices incl. the keyboard, for every\n"
+  "autocutsel: process you run. To sync without that, run WITHOUT -mouseonly\n"
+  "autocutsel: (XFixes mode, no device access). See autocutsel(1) for both.\n";
+static const char li_denied_syslog[] =
+  "-mouseonly: cannot open any input device (permission denied); "
+  "user likely not in 'input' group; see autocutsel(1)";
 
 // Dedicated thread for libinput event processing
 static void *libinput_thread(void *arg)
@@ -185,6 +224,20 @@ static void CleanupLibinput(void)
 }
 #endif
 
+static void CleanupClipboardData(void)
+{
+  if (options.value) {
+    secure_zero(options.value, options.length);
+    options.value = NULL;
+    options.length = 0;
+  }
+  if (options.reverse_value) {
+    secure_zero(options.reverse_value, options.reverse_length);
+    options.reverse_value = NULL;
+    options.reverse_length = 0;
+  }
+}
+
 static void Terminate(int caught)
 {
   (void)caught;
@@ -197,6 +250,7 @@ static void Terminate(int caught)
 static void TrapSignals(void)
 {
   struct sigaction action;
+  memset(&action, 0, sizeof(action));
   sigemptyset (&action.sa_mask);
   action.sa_flags = 0;
   action.sa_handler = Terminate;
@@ -229,9 +283,7 @@ static void LosePrimaryTemp(Widget w, Atom *selection)
   (void)selection;
 }
 
-// Returns true if value (or length) is different
-// than current ones.
-// Update the current value
+// Update the stored value with new data. Frees the old value and allocates a copy.
 static void ChangeValue(char *value, int length)
 {
   /* XtMalloc calls XtErrorMsg on failure which typically exits; the NULL
@@ -315,7 +367,7 @@ static void OwnSelectionIfDiffers(Widget w, XtPointer client_data,
       options.own_selection = 1;
     }
     else
-      printf("WARNING: Unable to own selection!\n");
+      fprintf(stderr, "WARNING: Unable to own selection!\n");
   }
   XtFree(value);
 }
@@ -434,7 +486,7 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
           memcpy(options.reverse_value, (char*)value, length);
           options.reverse_length = length;
         } else {
-          printf("WARNING: Unable to own target selection!\n");
+          fprintf(stderr, "WARNING: Unable to own target selection!\n");
         }
       } else {
         if (options.debug)
@@ -478,6 +530,61 @@ static void SelectionReceived(Widget w, XtPointer client_data, Atom *selection,
   // (skip in mouseonly/Wayland modes - we use direct selection sync)
   if (!options.mouseonly && !options.wayland)
     CheckBuffer();
+}
+
+// Verify callback for reverse sync: reads the current monitored selection
+// (e.g. PRIMARY) to check if it already has the value we want to sync.
+// Only claims ownership if the content actually differs — avoids stealing
+// the visual selection from apps like gedit after keyboard Ctrl+C.
+static void ReverseVerifyOwnership(Widget w, XtPointer client_data,
+                                   Atom *selection, Atom *type,
+                                   XtPointer value,
+                                   unsigned long *received_length, int *format)
+{
+  int length = (*received_length > INT_MAX) ? INT_MAX : (int)*received_length;
+
+  // Compare with options.value (which ChangeValue already set in ReverseReceived).
+  // Account for encoding: options.value may be VNC-encoded, so compare against
+  // the raw UTF-8 stored value (options.value) after encoding conversion.
+  if (*type != 0 && *type != XT_CONVERT_FAIL && value && length > 0) {
+    // The current monitored selection owner is serving this value.
+    // Check if it matches what we'd serve (options.value, possibly encoded).
+    char *cmp_value = (char*)value;
+    int cmp_length = length;
+    char *conv = NULL;
+
+    if (options.encoding && length > 0) {
+      int conv_len;
+      conv = ConvertEncoding("UTF-8", options.encoding,
+                             (char*)value, length, &conv_len);
+      if (conv) {
+        cmp_value = conv;
+        cmp_length = conv_len;
+      }
+    }
+
+    int matches = (options.value && cmp_length == options.length &&
+                   memcmp(options.value, cmp_value, cmp_length) == 0);
+    if (conv) XtFree(conv);
+
+    if (matches) {
+      if (options.debug)
+        printf("Reverse: monitored selection already has this value, "
+               "skipping ownership\n");
+      XtFree(value);
+      return;
+    }
+  }
+
+  XtFree(value);
+
+  // Monitored selection has different content (or no owner) — own it
+  if (XtOwnSelection(box, options.selection, CurrentTime,
+      ConvertSelection, LoseSelection, NULL) == True) {
+    options.own_selection = 1;
+    if (options.debug)
+      printf("Reverse: owned monitored selection\n");
+  }
 }
 
 // Reverse direction: check if the target selection (e.g. CLIPBOARD) changed
@@ -561,12 +668,18 @@ static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
     if (store_length > 0) {
       ChangeValue(store_value, store_length);
 
-      // Own the monitored selection (e.g. PRIMARY) with this value
-      if (XtOwnSelection(box, options.selection, CurrentTime,
-          ConvertSelection, LoseSelection, NULL) == True) {
-        options.own_selection = 1;
+      if (options.own_selection) {
+        // We already own the monitored selection — just update the value
+        // (ConvertSelection will serve the new options.value on next request)
         if (options.debug)
-          printf("Reverse: owned monitored selection\n");
+          printf("Reverse: updated value (we already own monitored selection)\n");
+      } else {
+        // Someone else owns the monitored selection. Read its current value
+        // before claiming ownership — if it already has this content (e.g.
+        // gedit keyboard-selected text then Ctrl+C'd), skip to avoid stealing
+        // the visual selection from the current owner.
+        XtGetSelectionValue(box, options.selection, utf8_atom,
+          ReverseVerifyOwnership, SEL_TRY_UTF8, CurrentTime);
       }
     }
     if (conv) XtFree(conv);
@@ -579,6 +692,9 @@ static void ReverseReceived(Widget w, XtPointer client_data, Atom *selection,
 #ifdef HAVE_XFIXES
 // XFixes event handler: fires when selection ownership changes.
 // Replaces forward polling for instant detection of selection changes.
+#define XFIXES_DEBOUNCE_MS 100
+static Time last_xfixes_time = 0;
+
 static void XFixesSelectionHandler(Widget w, XtPointer client_data,
                                    XEvent *event, Boolean *cont)
 {
@@ -592,6 +708,14 @@ static void XFixesSelectionHandler(Widget w, XtPointer client_data,
 
   if (sev->owner == XtWindow(box) || sev->owner == None)
     return;
+
+  // Debounce: ignore events within 100ms of the last processed event.
+  // Cast to uint32_t for X11 timestamp wrap-safety (wraps every ~49 days).
+  // Skip debounce when timestamp is 0 (X server "current time" sentinel).
+  if (sev->timestamp != 0 && last_xfixes_time != 0 &&
+      (uint32_t)(sev->timestamp - last_xfixes_time) < XFIXES_DEBOUNCE_MS)
+    return;
+  last_xfixes_time = sev->timestamp;
 
   if (options.debug) {
     char *sel_name = XGetAtomName(dpy, sev->selection);
@@ -748,12 +872,15 @@ int main(int argc, char* argv[])
   // Without libinput, -mouseonly cannot distinguish mouse from keyboard selections
   if (options.mouseonly) {
     fprintf(stderr, "autocutsel: -mouseonly requires libinput (not available in this build)\n");
-    return 1;
+    return EXIT_MOUSEONLY_UNAVAILABLE;
   }
 #endif
 
-  // Auto-detect Wayland session (cutbuffer does not work under XWayland)
-  options.wayland = (getenv("WAYLAND_DISPLAY") != NULL) ? 1 : 0;
+  // Auto-detect Wayland session (cutbuffer does not work under XWayland).
+  // Require non-empty WAYLAND_DISPLAY — empty string is ambiguous (e.g.
+  // session teardown, nested containers) and should not trigger Wayland mode.
+  { const char *wd = getenv("WAYLAND_DISPLAY");
+    options.wayland = (wd != NULL && wd[0] != '\0') ? 1 : 0; }
   if (options.wayland && (options.debug || options.verbose))
     printf("Wayland detected, using direct selection sync (no cutbuffer)\n");
 
@@ -850,6 +977,7 @@ int main(int argc, char* argv[])
     if (xbuf && options.length > 0) {
       options.value = XtMalloc(options.length);
       memcpy(options.value, xbuf, options.length);
+      secure_zero(xbuf, options.length);
     }
     XFree(xbuf);
   }
@@ -922,6 +1050,31 @@ int main(int argc, char* argv[])
       options.li = libinput_udev_create_context(&li_interface, NULL, udev);
       if (options.li) {
         if (libinput_udev_assign_seat(options.li, "seat0") == 0) {
+          LiAccessStatus li_st = li_access_status(
+              atomic_load(&li_open_ok), atomic_load(&li_open_denied));
+          if (li_st == LI_ACCESS_DENIED) {
+            // Exit (not degrade): a permanent, user-fixable misconfiguration
+            // must not present as a healthy running service. The neighboring
+            // resource failures below (assign_seat/context/udev) degrade because
+            // they are rare, transient allocation errors, not user config.
+            fputs(li_denied_stderr, stderr);
+            // syslog too: survives -fork (CloseStdFds redirects stderr to
+            // /dev/null before this point). Silently no-ops if the journal
+            // socket is unreachable -- never breaks the exit.
+            openlog("autocutsel", LOG_PID, LOG_AUTH);
+            syslog(LOG_WARNING, "%s", li_denied_syslog);
+            closelog();
+            libinput_unref(options.li);
+            options.li = NULL;
+            udev_unref(udev);
+            return EXIT_MOUSEONLY_UNAVAILABLE;
+          }
+          if (li_st == LI_ACCESS_NODEV) {
+            fprintf(stderr,
+              "WARNING: -mouseonly: no accessible input devices found;"
+              " mouse-selection sync inactive until a device is hotplugged\n");
+            // fall through: keep running, hotplug may add a device later
+          }
           // Create pipe for cross-thread signaling before starting thread
           if (pipe(mouse_pipe) < 0) {
             fprintf(stderr, "WARNING: could not create mouse pipe\n");
@@ -979,6 +1132,8 @@ int main(int argc, char* argv[])
   // runs if XtAppMainLoop somehow returns (which it normally does not).
   atexit(CleanupLibinput);
 #endif /* USE_LIBINPUT */
+
+  atexit(CleanupClipboardData);
 
   // Register timers AFTER libinput setup (mouseonly may have been disabled
   // if libinput init failed, affecting which timers are needed).

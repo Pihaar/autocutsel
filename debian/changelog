@@ -7,6 +7,12 @@ autocutsel (0.11.4-1) unstable; urgency=medium
   * Add -pause validation, SIGPIPE handling, memory zeroing before free.
   * Improve test reliability: poll-based waiting, clean Xvfb display isolation.
   * Expand test suite with reverse sync regression and robustness tests.
+  * Harden cutsel: NULL/bounds checks on fwrite, XT_CONVERT_FAIL handling.
+  * Add XFixes event debounce (100ms) to prevent CPU flooding.
+  * Fix empty WAYLAND_DISPLAY triggering Wayland mode.
+  * Redirect warnings to stderr, fix stale comments.
+  * Add atexit clipboard data zeroing for defense-in-depth.
+  * SHA-pin all GitHub Actions, add Dependabot, restrict CI permissions.
 
  -- Patrick Haar <Pihaar@users.noreply.github.com>  Wed, 02 Apr 2026 18:00:00 +0200
 

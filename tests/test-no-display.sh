@@ -119,6 +119,41 @@ else
   echo "  PASS: cutsel does not link libinput"
 fi
 
+# --- Diagnostic message strings compiled in ---
+# The -mouseonly permission-denied / no-device messages live under
+# #ifdef USE_LIBINPUT. Lock the message contract against typos/removal.
+
+echo ""
+echo "Diagnostic strings:"
+
+if ! ldd "$AUTOCUTSEL_REAL" 2>/dev/null | grep -q libinput; then
+  _tests_run=$((_tests_run + 1))
+  _tests_skipped=$((_tests_skipped + 1))
+  echo "  SKIP: built without libinput, -mouseonly diagnostics not compiled in"
+elif ! command -v strings >/dev/null 2>&1; then
+  _tests_run=$((_tests_run + 1))
+  _tests_skipped=$((_tests_skipped + 1))
+  echo "  SKIP: 'strings' not available"
+else
+  _tests_run=$((_tests_run + 1))
+  if strings "$AUTOCUTSEL_REAL" | grep -qF "cannot open any input device"; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: -mouseonly permission-denied message compiled in"
+  else
+    _tests_failed=$((_tests_failed + 1))
+    echo "  FAIL: -mouseonly permission-denied message missing from binary"
+  fi
+
+  _tests_run=$((_tests_run + 1))
+  if strings "$AUTOCUTSEL_REAL" | grep -qF "no accessible input devices"; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: -mouseonly no-device warning compiled in"
+  else
+    _tests_failed=$((_tests_failed + 1))
+    echo "  FAIL: -mouseonly no-device warning missing from binary"
+  fi
+fi
+
 # --- Graceful failure without DISPLAY ---
 
 echo ""
@@ -294,6 +329,27 @@ if [ -f "$_service" ]; then
       echo "  FAIL: service file missing $_harden"
     fi
   done
+
+  # Exit-code contract: RestartPreventExitStatus must match the C constant
+  # EXIT_MOUSEONLY_UNAVAILABLE, else the anti-restart-loop guard silently breaks.
+  _src="$(dirname "$0")/../src/autocutsel.c"
+  _tests_run=$((_tests_run + 1))
+  if [ -f "$_src" ]; then
+    _code_c=$(grep -E '^#define[[:space:]]+EXIT_MOUSEONLY_UNAVAILABLE' "$_src" \
+              | grep -oE '[0-9]+' | head -n1)
+    _code_unit=$(grep -E '^RestartPreventExitStatus=' "$_service" \
+                 | grep -oE '[0-9]+' | head -n1)
+    if [ -n "$_code_c" ] && [ "$_code_c" = "$_code_unit" ]; then
+      _tests_passed=$((_tests_passed + 1))
+      echo "  PASS: RestartPreventExitStatus=$_code_unit matches EXIT_MOUSEONLY_UNAVAILABLE"
+    else
+      _tests_failed=$((_tests_failed + 1))
+      echo "  FAIL: exit-code drift (unit='$_code_unit', C='$_code_c')"
+    fi
+  else
+    _tests_skipped=$((_tests_skipped + 1))
+    echo "  SKIP: src/autocutsel.c not found for exit-code drift check"
+  fi
 else
   _tests_run=$((_tests_run + 1))
   _tests_skipped=$((_tests_skipped + 1))

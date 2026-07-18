@@ -6,14 +6,29 @@ PartOf=graphical-session.target
 # Only start when an X11 display is available (autocutsel is an X11 client).
 # On Wayland this is set when XWayland is available.
 ConditionEnvironment=DISPLAY
+# Backstop against any repeated startup failure (defense-in-depth beyond the
+# targeted RestartPreventExitStatus below): park the service in "failed" instead
+# of restart-looping if it keeps crashing for any reason.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/autocutsel/%i.args
-# Variable must be expanded by a shell for correct word splitting.
-ExecStart=/bin/sh -c 'exec /usr/bin/autocutsel ${AUTOCUTSEL_OPTS}'
+# systemd word-splits an unquoted $VAR (given as its own argument) at whitespace
+# WITHOUT invoking a shell, so no /bin/sh wrapper is needed. This avoids shell
+# command injection from a writable %i.args file and makes autocutsel the tracked
+# MainPID directly. Do NOT add -fork: with Type=simple the parent would return 0
+# before the startup checks run, breaking process tracking and the
+# RestartPreventExitStatus contract below.
+ExecStart=/usr/bin/autocutsel $AUTOCUTSEL_OPTS
 Restart=on-failure
 RestartSec=3
+# -mouseonly without input-device access (or a no-libinput build) is a permanent
+# misconfiguration, not a transient failure: autocutsel exits with this code and
+# systemd must NOT restart-loop on it. Keep in sync with EXIT_MOUSEONLY_UNAVAILABLE
+# in src/autocutsel.c.
+RestartPreventExitStatus=3
 
 # Sandboxing - requires PrivateUsers for mount-namespace-based options.
 # These options work on RHEL 9 / Fedora / openSUSE with unprivileged user
@@ -40,6 +55,9 @@ SystemCallFilter=@system-service
 # mode while blocking everything else.  This is more reliable than
 # PrivateDevices=true + BindPaths=/dev/input (which depends on mount
 # namespace ordering).
+# NOTE: char-input covers ALL input devices incl. the keyboard (cgroup level).
+# It is only needed for the 'mouseonly' instance and is inert without 'input'
+# group membership. Non-mouseonly instances can drop the two lines below.
 DevicePolicy=closed
 DeviceAllow=char-input r
 

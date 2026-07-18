@@ -29,7 +29,12 @@ static int failures = 0;
 
 #define ASSERT_STR_EQ(a, b) do { \
   const char *_a = (a), *_b = (b); \
-  if (strcmp(_a, _b) != 0) { \
+  if (_a == NULL || _b == NULL) { \
+    if (_a == _b) { passes++; } else { \
+      fprintf(stderr, "  FAIL %s:%d: %s=%s, expected %s=%s\n", \
+              __FILE__, __LINE__, #a, _a ? _a : "NULL", #b, _b ? _b : "NULL"); \
+      failures++; } \
+  } else if (strcmp(_a, _b) != 0) { \
     fprintf(stderr, "  FAIL %s:%d: %s=\"%s\", expected \"%s\"\n", \
             __FILE__, __LINE__, #a, _a, _b); \
     failures++; \
@@ -122,6 +127,10 @@ static void test_convert_encoding(void)
 
   /* NULL input with in_len=0 -> NULL */
   result = ConvertEncoding("UTF-8", "ISO-8859-1", NULL, 0, &out_len);
+  ASSERT_NULL(result);
+
+  /* NULL input with positive in_len -> NULL (guard from Item 4) */
+  result = ConvertEncoding("UTF-8", "UTF-8", NULL, 5, &out_len);
   ASSERT_NULL(result);
 }
 
@@ -223,19 +232,19 @@ static void test_drain_pipe(void)
   ASSERT_EQ(drain_pipe(-1), 0);
 
   /* Empty pipe: returns 0 */
-  pipe(pipefd);
+  if (pipe(pipefd) < 0) { perror("pipe"); return; }
   fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
   ASSERT_EQ(drain_pipe(pipefd[0]), 0);
 
   /* Pipe with data: returns 1 */
-  write(pipefd[1], "abc", 3);
+  if (write(pipefd[1], "abc", 3) < 0) perror("write");
   ASSERT_EQ(drain_pipe(pipefd[0]), 1);
 
   /* After drain, empty: returns 0 */
   ASSERT_EQ(drain_pipe(pipefd[0]), 0);
 
   /* Multiple bytes drained */
-  write(pipefd[1], "xyzxyzxyz", 9);
+  if (write(pipefd[1], "xyzxyzxyz", 9) < 0) perror("write");
   ASSERT_EQ(drain_pipe(pipefd[0]), 1);
 
   /* EINTR resilience: schedule a signal with a real handler (not SIG_IGN,
@@ -248,7 +257,7 @@ static void test_drain_pipe(void)
     sa.sa_flags = 0;              /* no SA_RESTART → read returns EINTR */
     sigaction(SIGALRM, &sa, NULL);
 
-    write(pipefd[1], "eintr", 5);
+    if (write(pipefd[1], "eintr", 5) < 0) perror("write");
     struct itimerval itv = { .it_value = { .tv_sec = 0, .tv_usec = 500 } };
     setitimer(ITIMER_REAL, &itv, NULL);
     ASSERT_EQ(drain_pipe(pipefd[0]), 1);
@@ -259,6 +268,28 @@ static void test_drain_pipe(void)
 
   close(pipefd[0]);
   close(pipefd[1]);
+}
+
+/* --- li_access_status tests --- */
+
+static void test_li_access_status(void)
+{
+  ASSERT_EQ(li_access_status(0, 0), LI_ACCESS_NODEV);
+  ASSERT_EQ(li_access_status(1, 0), LI_ACCESS_OK);
+  ASSERT_EQ(li_access_status(3, 0), LI_ACCESS_OK);
+  ASSERT_EQ(li_access_status(0, 1), LI_ACCESS_DENIED);
+  ASSERT_EQ(li_access_status(0, 5), LI_ACCESS_DENIED);
+  ASSERT_EQ(li_access_status(2, 1), LI_ACCESS_OK);   /* positive opened wins */
+  ASSERT_EQ(li_access_status(1, 9), LI_ACCESS_OK);
+  /* Out-of-contract / cross-axis inputs -> safe fallback */
+  ASSERT_EQ(li_access_status(-1, 0), LI_ACCESS_NODEV);
+  ASSERT_EQ(li_access_status(0, -1), LI_ACCESS_NODEV);
+  ASSERT_EQ(li_access_status(-1, 1), LI_ACCESS_DENIED); /* negative != opened */
+  ASSERT_EQ(li_access_status(-1, -1), LI_ACCESS_NODEV);
+  ASSERT_EQ(li_access_status(INT_MIN, 0), LI_ACCESS_NODEV);
+  ASSERT_EQ(li_access_status(INT_MAX, 0), LI_ACCESS_OK);
+  ASSERT_EQ(li_access_status(0, INT_MAX), LI_ACCESS_DENIED);
+  ASSERT_EQ(li_access_status(INT_MAX, INT_MAX), LI_ACCESS_OK);
 }
 
 /* --- Main --- */
@@ -283,6 +314,9 @@ int main(int argc, char *argv[])
 
   printf("drain_pipe:\n");
   test_drain_pipe();
+
+  printf("li_access_status:\n");
+  test_li_access_status();
 
   printf("\nResults: %d passed, %d failed\n", passes, failures);
   return failures > 0 ? 1 : 0;

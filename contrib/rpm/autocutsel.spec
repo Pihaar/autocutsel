@@ -72,6 +72,12 @@ text editors.
 - Add -pause validation, SIGPIPE handling, memory zeroing before free
 - Improve test reliability: poll-based waiting, clean Xvfb display isolation
 - Expand test suite with reverse sync regression and robustness tests
+- Harden cutsel: NULL/bounds checks on fwrite, XT_CONVERT_FAIL handling
+- Add XFixes event debounce (100ms) to prevent CPU flooding
+- Fix empty WAYLAND_DISPLAY triggering Wayland mode
+- Redirect warnings to stderr, fix stale comments
+- Add atexit clipboard data zeroing for defense-in-depth
+- SHA-pin all GitHub Actions, add Dependabot, restrict CI permissions
 
 * Mon Mar 23 2026 Pihaar <pihaar@users.noreply.github.com> - 0.11.3-1
 - Fix security issues in autocutsel, cutsel, and common

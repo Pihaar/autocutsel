@@ -13,10 +13,9 @@ done
 
 # Shell script syntax check
 for f in tests/*.sh bootstrap; do
-  [ -f "$f" ] && sh -n "$f" || {
-    echo "FAIL: syntax error in $f"
-    exit 1
-  }
+  if [ -f "$f" ]; then
+    sh -n "$f" || { echo "FAIL: syntax error in $f"; exit 1; }
+  fi
 done
 
 # Shellcheck (if available)

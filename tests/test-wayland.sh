@@ -35,13 +35,11 @@ run_capture_unbuffered 2 "$AUTOCUTSEL" -debug
 assert_not_contains "no Wayland without WAYLAND_DISPLAY" "$_output" "Wayland detected"
 assert_not_contains "no target selection in X11 mode" "$_output" "Monitoring:"
 
-# Empty WAYLAND_DISPLAY should NOT trigger Wayland (getenv returns "" not NULL,
-# but our code checks != NULL which is true for "" — this documents actual behavior)
+# Empty WAYLAND_DISPLAY should NOT trigger Wayland mode.
+# An empty string is ambiguous (session teardown, nested containers).
 export WAYLAND_DISPLAY=""
 run_capture_unbuffered 2 "$AUTOCUTSEL" -debug
-# Note: empty string IS non-NULL, so Wayland IS detected. This is intentional
-# because an empty WAYLAND_DISPLAY still indicates a Wayland session.
-assert_contains "empty WAYLAND_DISPLAY still triggers detection" "$_output" "Wayland detected"
+assert_not_contains "empty WAYLAND_DISPLAY does not trigger detection" "$_output" "Wayland detected"
 
 # Restore original value
 if [ -n "$_orig_wayland" ]; then

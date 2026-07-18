@@ -1038,6 +1038,12 @@ kill -9 "$_pid" 2>/dev/null
 wait "$_pid" 2>/dev/null
 sleep 1
 
+# Restart autocutsel for the assertion block (probe was killed above)
+cleanup_instances
+"$AUTOCUTSEL" -mouseonly -debug >/dev/null 2>&1 &
+_pid=$!
+sleep 1
+
 if [ "$_mouseonly_active" -eq 0 ]; then
   _tests_run=$((_tests_run + 9))
   _tests_skipped=$((_tests_skipped + 9))

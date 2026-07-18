@@ -9,7 +9,7 @@ license=('GPL-2.0-or-later')
 depends=('libx11' 'libxt' 'libxmu' 'libxaw' 'libxext' 'libxfixes' 'libinput' 'systemd-libs')
 makedepends=('autoconf' 'automake' 'libtool' 'pkg-config')
 source=("$pkgname-$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('SKIP')  # CI builds use local tarball; real checksums for AUR releases
 
 build() {
   cd "$pkgname-$pkgver"

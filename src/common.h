@@ -126,3 +126,14 @@ int drain_pipe(int fd);
 Boolean ConvertSelection(Widget w, Atom *selection, Atom *target,
                                 Atom *type, XtPointer *value,
                                 unsigned long *length, int *format);
+
+// libinput device-access classification for -mouseonly startup.
+// Pure logic (no libinput/X11 symbols) so it is unit-testable and available
+// even in builds without libinput.
+typedef enum {
+  LI_ACCESS_OK,      // at least one input device opened successfully
+  LI_ACCESS_DENIED,  // no device opened, and at least one open() gave EACCES/EPERM
+  LI_ACCESS_NODEV    // no device opened, no permission error (headless / hotplug)
+} LiAccessStatus;
+
+LiAccessStatus li_access_status(int opened, int denied);

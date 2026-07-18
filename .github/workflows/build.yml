@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+
 jobs:
   version:
     name: Check version consistency
@@ -14,7 +17,7 @@ jobs:
     outputs:
       version: ${{ steps.get.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Extract version from configure.ac
         id: get
@@ -55,7 +58,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -82,7 +85,7 @@ jobs:
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -110,7 +113,7 @@ jobs:
             libinput-dev libudev-dev \
             xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -138,7 +141,7 @@ jobs:
             libinput-dev libudev-dev \
             xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -165,7 +168,7 @@ jobs:
             libinput systemd \
             xorg-server-xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -192,7 +195,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip libasan libubsan
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -219,7 +222,7 @@ jobs:
             libinput-devel systemd-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -247,7 +250,7 @@ jobs:
             gcc make autoconf automake libtool file \
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Bootstrap
         run: ./bootstrap
@@ -282,7 +285,7 @@ jobs:
             libX11-devel libXt-devel libXmu-devel libXaw-devel libXext-devel libXfixes-devel \
             libinput-devel systemd-devel
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Create source tarball
         env:
@@ -299,7 +302,7 @@ jobs:
         run: rpmbuild -ba contrib/rpm/autocutsel.spec
 
       - name: Upload RPM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: rpm-fedora
           path: ~/rpmbuild/RPMS/**/*.rpm
@@ -318,7 +321,7 @@ jobs:
             libinput-devel libudev-devel \
             xorg-x11-server-Xvfb xclip
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Create source tarball
         env:
@@ -343,7 +346,7 @@ jobs:
           done
 
       - name: Upload RPM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: rpm-opensuse
           path: /usr/src/packages/RPMS/**/*.rpm
@@ -364,7 +367,7 @@ jobs:
             xvfb xclip \
             debhelper fakeroot dpkg-dev
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Build DEB
         run: dpkg-buildpackage -us -uc -b
@@ -373,7 +376,7 @@ jobs:
         run: cp ../*.deb .
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: deb-debian
           path: '*.deb'
@@ -397,7 +400,7 @@ jobs:
           useradd -m builder
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Create source tarball
         env:
@@ -415,7 +418,7 @@ jobs:
           su builder -c 'makepkg -sf --noconfirm'
 
       - name: Upload PKG
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: pkg-archlinux
           path: '*.pkg.tar.zst'
@@ -427,7 +430,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Create draft release
         env:
@@ -445,7 +448,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
 
       - name: Upload assets to release
         env:

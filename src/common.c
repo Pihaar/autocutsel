@@ -91,6 +91,21 @@ int drain_pipe(int fd)
 }
 
 
+// Classify libinput device-open results gathered during
+// libinput_udev_assign_seat(). Positive "opened" wins: if any device opened,
+// mouseonly is considered functional. Inputs come from counters that only ever
+// increment from 0, so negative/overflow values are unreachable in practice;
+// they map to NODEV as a safe fallback rather than being rejected.
+LiAccessStatus li_access_status(int opened, int denied)
+{
+  if (opened > 0)
+    return LI_ACCESS_OK;
+  if (denied > 0)
+    return LI_ACCESS_DENIED;
+  return LI_ACCESS_NODEV;
+}
+
+
 // Convert between encodings using iconv.
 // Returns a newly XtMalloc'd buffer (caller must XtFree) and sets *out_len.
 // Returns NULL on failure.
@@ -105,6 +120,7 @@ char *ConvertEncoding(const char *from_enc, const char *to_enc,
   }
 
   if (in_len <= 0) { iconv_close(cd); return NULL; }
+  if (!input) { iconv_close(cd); return NULL; }
 
   // Guard against integer overflow: in_len * 4 + 4
   if ((size_t)in_len > (SIZE_MAX - 4) / 4) { iconv_close(cd); return NULL; }

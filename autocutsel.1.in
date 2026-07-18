@@ -104,6 +104,21 @@ sudo usermod \-aG input $USER
 .RE
 .IP
 A re-login is required for the group change to take effect.
+.IP
+.B "Security implication:"
+membership in the \fBinput\fP group grants read access to \fBall\fP input
+devices, including the keyboard, for \fBevery\fP process you run, a local
+keylogging surface. RHEL 10 and similar distributions deliberately withhold
+this from ordinary users; enable it only as a conscious trade-off.
+.IP
+.B "Lower-privilege alternative:"
+run autocutsel \fBwithout\fP \fB\-mouseonly\fP (the default XFixes/polling
+mode). It needs no input-device access and no \fBinput\fP group membership, and
+syncs PRIMARY to CLIPBOARD for most uses. Note that this mode also syncs
+keyboard-driven selections (e.g. Shift+Arrow), not just mouse selections.
+.IP
+If no input device is accessible, \fB\-mouseonly\fP now exits with a diagnostic
+(also logged via syslog) instead of appearing to run while doing nothing.
 .TP
 .BR \-encoding ", " \-e " " \fIcharset\fR
 Convert clipboard text between UTF\-8 and the specified character encoding

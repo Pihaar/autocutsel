@@ -94,12 +94,15 @@ set_selection CLIPBOARD "pause-new-value"
 sleep 1
 get_selection PRIMARY
 if [ "$_sel_value" = "pause-new-value" ]; then
-  # Might have synced early — timing dependent, not a hard fail
+  # XFixes detected — sync was instant via events, not polling.
+  # -pause only governs the fallback poll; we can still verify sync works.
   _tests_run=$((_tests_run + 1))
   _tests_passed=$((_tests_passed + 1))
-  echo "  PASS: -pause 3000 syncs (timing may vary)"
+  echo "  PASS: -pause 3000 sync works (XFixes active, instant sync)"
 else
-  # Poll until it syncs (should happen within one pause interval)
+  # No XFixes — verify the delay: after 1s, sync should NOT have happened yet
+  assert_not_contains "pause delays sync" "$_sel_value" "pause-new-value"
+  # Now wait for full delay
   wait_for_selection PRIMARY "pause-new-value" 10
   get_selection PRIMARY
   assert_equal "-pause 3000 syncs after delay" "$_sel_value" "pause-new-value"

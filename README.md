@@ -148,6 +148,12 @@ autocutsel -selection PRIMARY -mouseonly
 
 Only a single instance is needed (unlike the classic two-instance setup).
 
+> **Security note:** membership in the `input` group grants read access to *all* input devices, including the keyboard, for *every* process you run. That is a local keylogging surface, which RHEL 10 and similar distributions deliberately withhold from ordinary users. Enable `-mouseonly` only as a conscious trade-off.
+>
+> **Lower-privilege alternative:** run autocutsel *without* `-mouseonly` (the default XFixes mode). It needs no input-device access and no `input` group, and syncs PRIMARY to CLIPBOARD for most cases. It also syncs keyboard-driven selections, not just mouse selections.
+>
+> If no input device is accessible, `-mouseonly` now exits with an explicit error (and a syslog entry) instead of appearing to run while silently doing nothing.
+
 ### cutsel utility
 
 `cutsel` is a companion tool for inspecting and manipulating selections and cutbuffers:

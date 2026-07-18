@@ -37,25 +37,39 @@ test_mode "buttonup mode" -selection _TEST_M4 -buttonup
 # With -encoding
 test_mode "encoding mode" -selection _TEST_M5 -encoding WINDOWS-1252
 
-# mouseonly mode (may fail without libinput/input group access)
+# mouseonly mode: startup can be OK (a device opened), NODEV (no device: warns
+# and keeps running), or DENIED (no access: exits with EXIT_MOUSEONLY_UNAVAILABLE).
+# Capture stderr to tell them apart. This probe only ever PASSes or SKIPs.
 _mouseonly_available=0
-"$AUTOCUTSEL" -selection PRIMARY -mouseonly -debug 2>/dev/null &
+_mo_stderr=$(mktemp)
+"$AUTOCUTSEL" -selection PRIMARY -mouseonly -debug 2>"$_mo_stderr" &
 _pid=$!
 sleep 1
+_tests_run=$((_tests_run + 1))
 if kill -0 "$_pid" 2>/dev/null; then
+  # Process alive: OK (device opened) or NODEV (fell through after warning).
   _mouseonly_available=1
-  _tests_run=$((_tests_run + 1))
-  _tests_passed=$((_tests_passed + 1))
-  echo "  PASS: mouseonly mode starts"
   kill -9 "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null
   sleep 2
+  if grep -qF "no accessible input devices" "$_mo_stderr"; then
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: mouseonly NODEV warns on stderr and keeps running"
+  else
+    _tests_passed=$((_tests_passed + 1))
+    echo "  PASS: mouseonly mode starts (input device accessible)"
+  fi
 else
-  _tests_run=$((_tests_run + 1))
-  _tests_skipped=$((_tests_skipped + 1))
-  echo "  SKIP: mouseonly mode (libinput/input group not available)"
+  # Process exited quickly: DENIED (permission) or libinput unavailable.
   wait "$_pid" 2>/dev/null
+  _tests_skipped=$((_tests_skipped + 1))
+  if grep -qF "permission denied" "$_mo_stderr"; then
+    echo "  SKIP: mouseonly DENIED (user not in input group), exits as designed"
+  else
+    echo "  SKIP: mouseonly mode (libinput/input group not available)"
+  fi
 fi
+rm -f "$_mo_stderr"
 
 # --- Fork/daemon mode (detailed checks) ---
 
