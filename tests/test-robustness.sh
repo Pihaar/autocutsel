@@ -1048,6 +1048,7 @@ if [ "$_mouseonly_active" -eq 0 ]; then
   _tests_run=$((_tests_run + 9))
   _tests_skipped=$((_tests_skipped + 9))
   echo "  SKIP: mouseonly not available (libinput/input group)"
+  kill "$_pid" 2>/dev/null
   wait "$_pid" 2>/dev/null
 elif require_xclip && [ "$_clean_display" -eq 1 ]; then
   # Reverse: external CLIPBOARD write should appear in PRIMARY
