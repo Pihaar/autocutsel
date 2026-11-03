@@ -4,8 +4,11 @@
 set -e
 
 # C syntax check (fast, no linking)
+# libinput headers live in a subdirectory on some distributions; ask pkg-config.
+_incflags=$(pkg-config --cflags libinput 2>/dev/null || true)
 for f in src/*.c; do
-  gcc -fsyntax-only -include config.h -I. "$f" 2>/dev/null || {
+  # shellcheck disable=SC2086
+  gcc -fsyntax-only -include config.h -I. $_incflags "$f" 2>/dev/null || {
     echo "FAIL: syntax error in $f"
     exit 1
   }
@@ -20,7 +23,7 @@ done
 
 # Shellcheck (if available)
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -s sh -e SC2039,SC3045 tests/*.sh || {
+  shellcheck -s sh -x -P tests -e SC2039,SC3045 tests/*.sh || {
     echo "FAIL: shellcheck found issues"
     exit 1
   }

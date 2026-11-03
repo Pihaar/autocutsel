@@ -113,7 +113,7 @@ if [ -n "$_fpid" ]; then
     echo "  SKIP: ps not available for re-parent check"
   fi
 
-  kill $_fpid 2>/dev/null
+  kill "$_fpid" 2>/dev/null
   sleep 1  # let process exit
 else
   _tests_run=$((_tests_run + 1))
@@ -140,7 +140,7 @@ if [ "$_mouseonly_available" -eq 1 ]; then
   if [ -n "$_fpid" ] && [ "$_fork_exit" -eq 0 ]; then
     _tests_passed=$((_tests_passed + 1))
     echo "  PASS: mouseonly + fork starts"
-    kill -9 $_fpid 2>/dev/null
+    kill -9 "$_fpid" 2>/dev/null
     sleep 2
   else
     _tests_skipped=$((_tests_skipped + 1))
